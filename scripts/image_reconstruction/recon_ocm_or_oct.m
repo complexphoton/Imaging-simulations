@@ -9,10 +9,10 @@ load(syst_data_path, 'L_image', 'z_f_air', 'dx', 'dz_image', 'wavelength_list', 
     'epsilon_in', 'epsilon_eff', 'noise_amp', 'n_jobs');
 
 if strcmpi(recon_method, 'ocm')
-    load(syst_data_dir, 'y_image_ocm');
+    load(syst_data_path, 'y_image_ocm');
     y_image = y_image_ocm;
 else
-    load(syst_data_dir, 'y_image_oct');
+    load(syst_data_path, 'y_image_oct');
     y_image = y_image_oct;
 end
 
