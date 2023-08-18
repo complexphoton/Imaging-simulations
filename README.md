@@ -1,14 +1,20 @@
 # Imaging simulations
 
 ## Introduction
-This repository contains the code for performing large-scale full-wave simulations of five optical imaging methods by the scattering matrix: 
+This repository contains the code for performing large-scale full-wave simulations of several scattering-based imaging methods:
+
+["Numerical experiments of tomographic optical imaging inside scattering media"](https://arxiv.org/abs/2308.07244)  
 - Scattering matrix tomography ([SMT](https://arxiv.org/abs/2306.08793))
 - Reflectance confocal microscopy (RCM)
 - Optical coherence tomography (OCT)
 - Optical coherence microscopy (OCM)
 - Interferometric synthetic aperture microscopy (ISAM)
 
-In principle, our approach can model any scattering-based imaging method. Such numerical modeling can be helpful for developing new imaging methods by providing the ground truth, the flexibility to tailor the system and the imaging scheme, and the ease of comparing different methods.
+["Deep imaging inside scattering media through virtual spatiotemporal wavefront shaping"](https://arxiv.org/abs/2306.08793)
+- Synthetic OCT
+- Synthetic OCM
+
+Our numerical modeling is based on the scattering matrix. Given the scattering matrix of the sample, one can obtain the scattering field from arbitrary input. This enables us to model any imaging method that uses scattering wave to reconstruct the image. More importantly, the full-wave computation of scattering matrices is accelerated by several orders-of-magnitude thanks to the introduction of a new technique called [augmented partial factorizaion](https://www.nature.com/articles/s43588-022-00370-6), making it possible to perform the simulation on a large scale. Such numerical modeling can be helpful for developing new imaging methods by providing the ground truth, the flexibility to tailor the system and the imaging scheme, and the ease of comparing different methods.
 
 ## Installation
 
@@ -50,9 +56,6 @@ The detailed instructions for compiling MUMPS can be found [here](https://github
 #### FINUFFT
 
 Download the source code from [here](https://github.com/flatironinstitute/finufft). Currently, there are two routes to compile: the new CMake route or the old GNU makefile route. 
-<!--
-Currently, there are two routes to compile: CMake or GNU makefile. My compilation was done using the GNU makefile route. 
--->
 
 There is a caveat in compiling the MATLAB interface on Mac. You may get a warning of ```license has not been accepted``` from Xcode and a following error of ```no supported compiler was found```. The same error can happen to the MUMPS MATLAB interface. The simple [solution](https://finufft.readthedocs.io/en/latest/install.html#the-clang-route-default) is typing 
 
@@ -68,6 +71,7 @@ After installing the required dependencies above, you can simply download the co
 ## Getting Started
 To get started, we suggest running the image reconstruction script for the system described in our paper, after downloading the precomputed reflection matrix and the corresponding ```system_data.mat``` file. Each image can be reconstructed in one minute on a MacBook Air with Apple M1 chip. Running ```recon_all.m``` will reconstruct all images.
 
+Later we will upload a small system for testing. All the computation of the small-system example can be done on a laptop.
 
 ## Usage
 
@@ -81,4 +85,12 @@ To get started, we suggest running the image reconstruction script for the syste
 
 ### Plotting
 
+
 ## Results
+
+### The large system
+
+![combined_results](./figs/large_system/reconstructed_images/combined_results.jpg)
+### The weakly scattering system
+
+![combined_results](./figs/large_system_no_weak/reconstructed_images/combined_results.jpg)
