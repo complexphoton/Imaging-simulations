@@ -14,7 +14,7 @@ This repository contains the code for performing large-scale full-wave simulatio
 - Synthetic OCT
 - Synthetic OCM
 
-Our numerical modeling is based on the scattering matrix. Given the scattering matrix of the sample, one can obtain the scattering field from arbitrary input. This enables us to model any imaging method that uses scattering wave to reconstruct the image. More importantly, the full-wave computation of scattering matrices is accelerated by several orders-of-magnitude thanks to the introduction of a new technique called [augmented partial factorizaion](https://www.nature.com/articles/s43588-022-00370-6), making it possible to perform the simulation on a large scale. Such numerical modeling can be helpful for developing new imaging methods by providing the ground truth, the flexibility to tailor the system and the imaging scheme, and the ease of comparing different methods.
+Our numerical modeling is based on the scattering matrix. Given the scattering matrix of the sample, one can obtain the scattering field from arbitrary input. This enables us to model any imaging method that uses scattering wave. More importantly, the full-wave computation of scattering matrices is accelerated by several orders-of-magnitude thanks to the introduction of a new technique called [augmented partial factorizaion](https://www.nature.com/articles/s43588-022-00370-6), making it possible to perform the simulation on a large scale. Such numerical modeling can be helpful for developing new imaging methods by providing the ground truth, the flexibility to tailor the system and the imaging scheme, and the ease of comparing different methods.
 
 ## Installation
 
