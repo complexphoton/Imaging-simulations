@@ -14,12 +14,12 @@ This repository contains the code for performing large-scale full-wave simulatio
 - Synthetic OCT
 - Synthetic OCM
 
-Our numerical modeling is based on the scattering matrix. Given the scattering matrix of the sample, one can obtain the scattering field from arbitrary input. This enables us to model any imaging method that uses scattering wave. More importantly, the full-wave computation of scattering matrices is accelerated by several orders-of-magnitude thanks to the introduction of a new technique called [augmented partial factorizaion](https://www.nature.com/articles/s43588-022-00370-6), making it possible to perform the simulation on a large scale. Such numerical modeling can be helpful for developing new imaging methods by providing the ground truth, the flexibility to tailor the system and the imaging scheme, and the ease of comparing different methods.
+Our numerical modeling is based on the scattering matrix, which encapsulates the sample’s complete linear response. Given the scattering matrix of the sample, we can obtain the scattering field from arbitrary input and model any scattering-based imaging method. More importantly, the computation of scattering matrices is accelerated by several orders-of-magnitude thanks to the introduction of a new technique called [augmented partial factorizaion](https://www.nature.com/articles/s43588-022-00370-6), making it possible to perform the full-wave simulation on a large scale. Such numerical modeling can be helpful for developing new imaging methods by providing the ground truth, the flexibility to tailor the system and the imaging scheme, and the ease of comparing different methods.
 
 ## Installation
 
 ### Prerequisites
-In order to run the code, you will need to install the following dependencies.
+To run the code, you will need the following dependencies:
 
 - System setup: [MESTI](https://github.com/complexphoton/MESTI.m), [METIS](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview) (optional, a package for producing the matrix ordering)
 - Reflection matrix computation: [MESTI](https://github.com/complexphoton/MESTI.m), [MUMPS](https://mumps-solver.org/index.php)
