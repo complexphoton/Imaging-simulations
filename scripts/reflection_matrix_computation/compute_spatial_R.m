@@ -1,15 +1,22 @@
 function compute_spatial_R(job_id, n_jobs, data_dir, use_high_NA, analysis_only)
 %Compute hyperspectral spatial reflection matrix
-% - job_id = 1, 2, ..., n_jobs: used for
-
-% running multiple jobs in parallel on the cluster.
-% Each job will compute a subset of the wavelength list based on its job id.
-% - n_jobs: total number of jobs. It should be an integer between 1 and
-% number of wavelengths.
-% - data_dir: root of the data directory.
-% - analysis_only: set it to true in the initialization script to obtain
-% ordering without doing the factorization. set it to false for the r
-% computation
+% - n_jobs: the number of jobs to be submitted on the cluster. 
+% Each job computes the reflection matrix at several frequencies. 
+% For example, we set n_jobs=225 for the large system simulation of 
+% computing two frequencies per job and 450 frequencies in total. 
+% On a local machine, you can set n_jobs=1.
+% - job_id: a number between 1 and n_jobs. It is used to obtain the specific 
+% frequency range for this job. For example, in our large system simulation 
+% setting job_id=1 computes reflection matrices at the first two frequencies. 
+% On a local machine, you can set job_id=1.
+% - data_dir: the directory where system_data.mat is saved. 
+% The reflection matrix data will be saved under this directory as well.
+% - analysis_only: a logical argument used for generating the METIS ordering. 
+% You should set it to false for the reflection matrix computation. 
+% Setting it to true will skip the factorization and only save the ordering data.
+% - use_high_NA: a logical argument. It controls which NA is used for computing 
+% the spatial reflection matrix. Setting it to true will use the high NA to
+% compute R.
 
 syst_data_path = fullfile(data_dir, 'system_data.mat');
 load(syst_data_path, 'epsilon', 'epsilon_medium', 'dx', 'epsilon_in', 'z_f_air', 'PML', 'wavelength_list');
