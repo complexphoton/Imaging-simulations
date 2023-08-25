@@ -53,7 +53,7 @@ The detailed instructions for compiling MUMPS can be found [here](https://github
 
 #### FINUFFT
 
-Download the source code from [here](https://github.com/flatironinstitute/finufft/releases). Currently, there are two routes to compile: the new CMake route and the old GNU makefile route. You can try the makefile route if the CMake route does not work. Remember to add ```finufft-x.x.x/matlab``` to the MATLAB search path after the compilation.
+Download the source code from [here](https://github.com/flatironinstitute/finufft/releases). There are two routes to compile: the new CMake-based route and the old GNU makefile-based route. Note that the CMake-based route is still [under development](https://github.com/flatironinstitute/finufft/pull/254), which does not support many building options. You can take the makefile-based route for now.
 
 There is a caveat in compiling the MATLAB interface on Mac. You may get a warning of ```license has not been accepted``` from Xcode and a following error of ```no supported compiler was found```. The same error can happen to the MUMPS MATLAB interface. The simple [solution](https://finufft.readthedocs.io/en/latest/install.html#the-clang-route-default) is typing 
 
@@ -62,10 +62,13 @@ $ /usr/libexec/PlistBuddy -c 'Add :IDEXcodeVersionForAgreedToGMLicense string 10
 ```
 in the command line. 
 
+Remember to add ```finufft-x.x.x/matlab``` to the MATLAB search path after the compilation.
+
+
 After installing the required dependencies above, you can simply download the code and add all folders to the MATLAB search path. Make sure that the working directory is ```/path/to/Imaging-simulations``` when you run the code.
 
 ## Getting Started
-To get started, we suggest running the image reconstruction code for the system described in our paper. After downloading the precomputed reflection matrix, ```system_data.mat``` file , you can run  ```recon_all.m``` to reconstruct all images. It takes less than one minute to reconstruct each image on a MacBook Air with Apple M1 chip. 
+To get started, we suggest running the image reconstruction code for the system described in our paper. After downloading the precomputed reflection matrix, ```system_data.mat``` file and moving them to ```Image-simulations/data/large_system```, you can run  ```recon_all.m``` to reconstruct all images. It takes less than one minute to reconstruct each image on a MacBook Air with Apple M1 chip. 
 
 After obtaining the reconstructed images, you may download the z-dependent weights and use the ```scripts/plotting/plot_all_images.m``` to plot all images.
 
@@ -78,18 +81,25 @@ Here, we give an overview of the functionality and usage of all components. For 
 ### System Setup
 This component (```Imaging-simulations/scripts/system_setup```) builds the system and outputs a ```system_data.mat``` file, which contains all the necessary data for reflection matrix computation and image reconstruction. In addition, it also outputs METIS ordering files if METIS is installed and the option of producing METIS orderings is set to true.
 
-To build the system, you should first define all parameters in ```data_dir/set_simulation_parameters.m```, where ```data_dir``` is the directory for saving all simulation data of this system. Here, we save the data at ```data_dir=Imaging-simulations/data/[system_name]```. After defining the parameters, you can set the ```data_dir``` in ```build_system.m``` and run the script. The script builds the system and saves all relevant data in ```data_dir/system_data.mat```. It also saves optional METIS ordering files under ```data_dir/orderings```.
+To build the system, you should first create a directory 
+```data_dir``` and a script ```data_dir/set_simulation_parameters.m```. All the simulation parameters shall be defined in that script. You can use our sample systems as the template. The ```data_dir``` will be used later for saving all simulation data of this system, including the reflection matrices and reconstructed images. In this repository, we use ```data_dir=Imaging-simulations/data/[system_name]```. After defining the parameters, you can specify your ```data_dir``` in ```build_system.m``` and run the script. The script builds the system and saves all relevant data in ```data_dir/system_data.mat```. It also saves optional METIS ordering files under ```data_dir/orderings```.
 
 
 ### Reflection Matrix Computation
 
-This component (```Imaging-simulations/reflection_matrix_computation```) computes the hyperspectral angular/spatial reflection matrices. There are three scripts in this componenet. The ```compute_angular_R.m``` computes angular reflection matrices at multiple frequencies while ```compute_spatial_R.m``` computes a subset of the spatial reflection metrics at multiple frequencies. The ```planckwin.m``` is used for generating a Planck-taper window profile for smoothing the line source profile.
+This component (```Imaging-simulations/reflection_matrix_computation```) computes hyperspectral angular/spatial reflection matrices. There are three scripts in this componenet. The ```compute_angular_R.m``` computes angular reflection matrices at multiple frequencies while ```compute_spatial_R.m``` computes a subset of the spatial reflection metrics at multiple frequencies. The ```planckwin.m``` is used for generating a Planck-taper window profile for smoothing the line source profile.
 
-The R computation function loads the necessary data from ```system_data.mat``` and the METIS orderings if exist.  After the computation is done, the reflection matrix will be saved under ```data_dir\hyperspectral_reflection_matrices```. 
+The R computation function loads necessary data from ```system_data.mat``` and the METIS orderings if exist.  After the computation is done, the reflection matrix will be saved under ```data_dir/hyperspectral_reflection_matrices```. Note that reflection matrices are converted to single-precision for reducing the storage space and accelerating the image reconstrcution speed. 
 
 ### Image Reconstruction
 
+This component (```Imaging-simulations/image_reconstruction```) consists of functions for reconstructing images from hyperspectral reflection matrices. Each function implements one or two imaging methods. You only need to specify the data directory ```data_dir``` and/or the imaging method in the arguments. The function will load necessay data from ```data_dir/system_data.mat``` and reflection matrices from ```data_dir/hyperspectral_reflection_matrices```, reconstruct the image, and save the reconstructed image data under ```data_dir/reconstructed_images```. Note that the image data is saved in single-precision, which is sufficient for most imaging applications. 
+
+
 ### Post-processing
+
+This component (```Imaging-simulations/depth_dependent_weights```) generates depth-dependent weights for reducing the intensity variation across different depths of the images. 
+
 
 ### Plotting
 
