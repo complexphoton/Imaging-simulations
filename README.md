@@ -68,7 +68,7 @@ Remember to add ```finufft-x.x.x/matlab``` to the MATLAB search path after the c
 After installing the required dependencies above, you can simply download the code and add all folders to the MATLAB search path. Make sure that the working directory is ```/path/to/Imaging-simulations``` when you run the code.
 
 ## Getting Started
-To get started, we suggest running the image reconstruction code for the system described in our paper. After downloading the precomputed reflection matrix, ```system_data.mat``` file and moving them to ```Image-simulations/data/large_system```, you can run  ```recon_all.m``` to reconstruct all images. It takes less than one minute to reconstruct each image on a MacBook Air with Apple M1 chip. 
+To get started, we suggest running the image reconstruction code for the system described in our paper. After downloading the precomputed reflection matrix, ```system_data.mat``` file and moving them to ```Image-simulations/data/large_system```, you can use  ```recon_all.m``` to reconstruct all images. Before running the script, make sure that the working directory is ```/path/to/Imaging-simulations``` and all scripts are in the MATLAB search path. It takes less than one minute to reconstruct each image on a MacBook Air with Apple M1 chip.  
 
 After obtaining the reconstructed images, you may download the z-dependent weights and use the ```scripts/plotting/plot_all_images.m``` to plot all images.
 
@@ -93,18 +93,25 @@ The R computation function loads necessary data from ```system_data.mat``` and t
 
 ### Image Reconstruction
 
-This component (```Imaging-simulations/image_reconstruction```) consists of functions for reconstructing images from hyperspectral reflection matrices. Each function implements one or two imaging methods. You only need to specify the data directory ```data_dir``` and/or the imaging method in the arguments. The function will load necessay data from ```data_dir/system_data.mat``` and reflection matrices from ```data_dir/hyperspectral_reflection_matrices```, reconstruct the image, and save the reconstructed image data under ```data_dir/reconstructed_images```. Note that the image data is saved in single-precision, which is sufficient for most imaging applications. 
+This component (```Imaging-simulations/image_reconstruction```) consists of functions for reconstructing images from hyperspectral reflection matrices. Each function implements one or two imaging methods menitioned in the introduction section. 
+
+To use those functions, you need to specify the data directory ```data_dir``` and/or the imaging method in the arguments. The function will load necessay data from ```data_dir/system_data.mat``` and reflection matrices from ```data_dir/hyperspectral_reflection_matrices```, reconstruct the image, and save the reconstructed image data under ```data_dir/reconstructed_images```. Note that the image data is saved in single-precision, which is sufficient for most imaging applications. 
 
 
 ### Post-processing
 
-This component (```Imaging-simulations/depth_dependent_weights```) generates depth-dependent weights for reducing the intensity variation across different depths of the images. 
+This component (```Imaging-simulations/depth_dependent_weights```) generates depth-dependent weights for reducing the intensity variation across different image depths. The weight is an exponential function of a piecewise polynomial. The polynomial coefficients are determined by manual tuning to fit the maximum image intensity at each depth. 
 
+The weight parameters for all images are defined in ```data_dir/z_z_dependent_weights/get_weight_parameters```. You specify the imaging method in the script. The script will generate the weight and plot the weight and the maximum image intensity at each depth. As a rule of thumb, you should tune the weight parameters such that trend of both curves matches. You can specify the option of saveing the weight to true after the tunning. The weight will be saved under ```data_dir/z_dependent_weights```.
 
 ### Plotting
 
+This component (```Imaging-simulations/plotting```) consists of a script for plotting the ground truth and reconstructed images. Later we may add another component for computing the field profile and the corresponding plotting script.
+
+You should specify the data directory ```data_dir``` and the list of imaging methods. If you have generated depth-dependent weights for those methods, you can set the option of applying weights to true. The script will load the image data from ```data_dir/reconstructed_images```, divide the image intensity by the depth-dependent weight if applicable, and plot the images. It also plots the ground truth if you includes "ground_truth" in the list of imaging methods. By setting the option of saving figures to true, you can save the JPEG image under ```Imaging-simulations/figs/[system_name]```. 
 
 ## Results
+In this section, we show some image reconstruction results.
 
 ### The large system
 
