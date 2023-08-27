@@ -40,10 +40,12 @@ weak_density = 0.25;
 epsilon_target = 2.5^2;
 epsilon_weak = 1.4^2;
 
-%% Define minimum distance between scatterers.
-min_dist_between_weak = weak_diam; 
-min_dist_between_target = 10*target_diam;
-min_dist_between_target_and_weak = (weak_diam+target_diam)*0.5;
+%% Define minimum separation between scatterers.
+min_sep_between_weak = weak_diam; 
+min_sep_between_target = 10*target_diam;
+min_sep_between_target_and_weak = (weak_diam+target_diam)*0.5;
+scatterer_min_separation = [[min_sep_between_target, min_sep_between_target_and_weak]; ...
+    [min_sep_between_target_and_weak, min_sep_between_weak]];
 
 %% Add noise to R for mimicing the experiment condition.
 % the noise is determined in experiment by measuring the relative fluctuation of r
@@ -74,7 +76,8 @@ dz_image = 0.2;
 dy_image_oct = 2;
 dz_image_rcm = 0.5;
 
-n_jobs = round(n_wavelength/2); % number of jobs submitted to the cluster
+n_wavelengths_per_job = 2;
+n_jobs = round(n_wavelength/n_wavelengths_per_job); % number of jobs submitted to the cluster
 
 %% Define the random seed for generating scatterer locations.
 random_seed_target = 9;
