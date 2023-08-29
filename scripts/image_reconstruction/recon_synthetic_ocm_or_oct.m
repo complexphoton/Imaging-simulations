@@ -1,4 +1,4 @@
-function recon_synthetic_ocm_or_oct(recon_method, data_dir)
+function recon_synthetic_ocm_or_oct(data_dir, recon_method)
 %recon_smt Reconstruct synthetic OCM or OCT from the angular reflection
 %matrix
 %    recon_synthetic_ocm_or_oct(data_dir, recon_method)

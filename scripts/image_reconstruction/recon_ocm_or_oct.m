@@ -1,4 +1,4 @@
-function recon_ocm_or_oct(recon_method, data_dir)
+function recon_ocm_or_oct(data_dir, recon_method)
 %recon_ocm_or_oct Reconstruct optical coherence microscopy (OCM) or 
 %optical coherence tomography (OCT).
 %    recon_ocm_or_oct(data_dir, recon_method)
