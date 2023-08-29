@@ -4,7 +4,7 @@ function recon_smt(data_dir)
 %
 %  === Input Arguments ===
 %  data_dir (character array; required): 
-%    the data directory where data_dir/system_data.mat stores
+%    The data directory where data_dir/system_data.mat stores
 %    system data and data_dir/hyperspectral_reflection_matrices/angular_R stores the
 %    angular reflection matrices.
 %
@@ -31,6 +31,7 @@ load(syst_data_path, 'z_f_air', 'dx', 'wavelength_list', 'FOV_before_windowing',
     'epsilon_in', 'epsilon_eff', 'W_image', 'L_image', 'dy_image', 'dz_image', ...
     'noise_amp', 'n_jobs', 'n_wavelengths_per_job', 'NA');
 
+%% Specify the reconstruction grid
 % In the calculation of R, the input/output transverse profiles are
 % exp(1j*ky*(y-FOV_before_windowing/2)), where y = 0 corresponds to the
 % system center. The reconstruction region is located between y = [-W_image/2,
@@ -38,36 +39,34 @@ load(syst_data_path, 'z_f_air', 'dx', 'wavelength_list', 'FOV_before_windowing',
 % FOV_before_windowing/2.
 y_image = (dy_image/2:dy_image:W_image) + (FOV_before_windowing - W_image)/2;
 z_image = dz_image/2:dz_image:L_image;
-
-% Define the image reconstruction grid Z and Y.
 [Z, Y] = meshgrid(z_image, y_image);
 [ny_image, nz_image] = size(Z);
 
-%% Reconstruct the SMT image
+%% Reconstruct the image
 psi = 0; % complex SMT image amplitude
 fprintf('reconstructing the image: ');
 for job_id = 1:n_jobs
-    % get the wavelength list computed from job_id
-    wavelength_sublist = wavelength_list(((job_id-1)*n_wavelengths_per_job+1):min(job_id*n_wavelengths_per_job, length(wavelength_list)));
-
     textprogressbar(job_id, job_id/n_jobs*100);
-    % load the corresponding subset of hyperspectral R.
+
+    % load the hyperspectral R
     load(fullfile(data_dir, 'hyperspectral_reflection_matrices', 'angular_R', [num2str(job_id), '.mat']), 'hyperspectral_R_angular');
-
+    % compute the wavelength list
+    wavelength_sublist = wavelength_list(((job_id-1)*n_wavelengths_per_job+1):min(job_id*n_wavelengths_per_job, length(wavelength_list)));
+    
     for i = 1:length(wavelength_sublist)
-
         k0dx = 2*pi/wavelength_sublist(i)*dx;
+
         % It is important to use the effective index rather than medium index here. 
         % Otherwise, the imaging depth will slightly decrease and the target locations
         % along z will shift.
         channels = mesti_build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_in, epsilon_eff);
 
-        % Select wavevectors within the NA
+        % select wavevectors within the NA
         idx_NA = abs(channels.L.kydx_prop/(k0dx*sqrt(epsilon_in))) <= NA;
         kz = channels.L.kxdx_prop(idx_NA)/dx;
         n_prop_NA = length(kz);
 
-        % Load R and add noise to mimic the experiment condition.
+        % add noise to mimic the experiment condition.
         R = hyperspectral_R_angular{i};
         R = R + noise_amp*sqrt(mean(abs(R).^2, 'all'))*(randn(size(R))+1j*randn(size(R)));
 
@@ -104,10 +103,9 @@ for job_id = 1:n_jobs
         % Note x[j], y[j] and c[j] are column vectors. The returned f is also a column vector.
         Ahr = finufft2d3(single(fy(:)), single(fz(:)), single(R(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
 
-        % Reshape the column vector to the 2D image.
+        % reshape the column vector to the 2D image
         Ahr = reshape(Ahr, ny_image, nz_image);
         psi = psi + Ahr;
-
     end
 end
 fprintf('done\n');
