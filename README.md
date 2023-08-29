@@ -4,7 +4,7 @@
 This repository contains the code for performing large-scale full-wave simulations of several scattering-based imaging methods:
 
 ["Numerical experiments of tomographic optical imaging inside scattering media"](https://arxiv.org/abs/2308.07244)  
-- Scattering matrix tomography ([SMT](https://arxiv.org/abs/2306.08793))
+- Scattering matrix tomography ([SMT](https://arxiv.org/abs/2306.08793)) in reflection mode
 - Reflectance confocal microscopy (RCM)
 - Optical coherence tomography (OCT)
 - Optical coherence microscopy (OCM)
@@ -14,12 +14,12 @@ This repository contains the code for performing large-scale full-wave simulatio
 - Synthetic OCT
 - Synthetic OCM
 
-We use the scattering matrix to perform numerical modeling. The scattering matrix encapsulates the sample’s complete linear response. Given the scattering matrix of the sample, we can obtain the scattering field from arbitrary input and model any scattering-based imaging method. More importantly, the computation of scattering matrices is accelerated by several orders-of-magnitude thanks to the introduction of a new technique called [augmented partial factorizaion](https://www.nature.com/articles/s43588-022-00370-6), making it possible to perform the full-wave simulation on a large scale. Such numerical modeling can be helpful for developing new imaging methods by providing the ground truth, the flexibility to tailor the system and the imaging scheme, and the ease of comparing different methods.
+We use the scattering matrix to perform numerical modeling. The scattering matrix encapsulates the sample’s complete linear response. Given the scattering matrix of the sample, we can obtain the scattering field from arbitrary input and model any scattering-based imaging method. More importantly, the computation of scattering matrices is accelerated by several orders-of-magnitude thanks to the introduction of a new technique called [augmented partial factorizaion](https://www.nature.com/articles/s43588-022-00370-6), making it possible to perform the full-wave simulation on a large system. Such numerical modeling can be helpful for developing new imaging methods by providing the ground truth, the flexibility to tailor the system and the imaging scheme, and the ease of comparing different methods.
 
 ## Installation
 
 ### Prerequisites
-The code is written in MATLAB so no installation is required. But you will need the following dependencies to run different components of the code:
+The code is written in MATLAB so no compilation is required. But you will need the following dependencies to run different components of the code:
 
 - System setup: [MESTI](https://github.com/complexphoton/MESTI.m), [METIS](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview) (optional, a package for producing the matrix ordering)
 - Reflection matrix computation: [MESTI](https://github.com/complexphoton/MESTI.m), [MUMPS](https://mumps-solver.org/index.php)
