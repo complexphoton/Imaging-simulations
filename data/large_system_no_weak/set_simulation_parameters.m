@@ -76,9 +76,8 @@ dz_image = 0.2;
 dy_image_oct = 2;
 dz_image_rcm = 0.5;
 
-data_dir = fullfile('.', 'data', 'large_system_no_weak');
-
-n_jobs = round(n_wavelength/2); % number of jobs submitted to the cluster
+n_wavelengths_per_job = 2;
+n_jobs = round(n_wavelength/n_wavelengths_per_job); % number of jobs submitted to the cluster
 
 %% Define the random seed for generating scatterer locations.
 random_seed_target = 9;
