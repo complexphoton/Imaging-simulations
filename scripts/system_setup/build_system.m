@@ -1,5 +1,5 @@
 % This script performs the following jobs:
-% - Generate the locations of targets and weak scatterers; 
+% - Generate the locations of targets and low-index-contrast scatterers; 
 % - Generate the permittivity profile;
 % - Generate the ordering sequence via METIS; 
 % - Save all necessary data for later usage.
@@ -23,7 +23,7 @@ FOV_before_windowing = FOV/(1-p); % specific to Planck-taper window; for Tukey-w
 % generate an equally-spaced-frequency wavelength list
 freq_over_c_min = 1/wavelength_max;
 freq_over_c_max = 1/wavelength_min;
-freq_over_c_list = linspace(freq_over_c_min, freq_over_c_max, n_wavelength);
+freq_over_c_list = linspace(freq_over_c_min, freq_over_c_max, n_wavelengths);
 wavelength_list = 1./freq_over_c_list;
 
 % check if the source profile go into PML.
@@ -34,6 +34,8 @@ end
 
 %% Generate scatterer locations
 fprintf('generating scatterer locations...\n');
+scatterer_min_separation = [[min_sep_between_target, min_sep_between_target_and_weak]; ...
+    [min_sep_between_target_and_weak, min_sep_between_weak]];
 scatterer_loc_list = generate_scatterer_locs(W, L, dx, [target_density; weak_density], ...
     [target_diam; weak_diam], scatterer_min_separation, [random_seed_target; random_seed_weak]);
 target_locs = scatterer_loc_list{1};
@@ -95,10 +97,10 @@ end
 
 syst_data_path = fullfile(data_dir, 'system_data.mat');
 fprintf('saving the system data ...\n');
-save(syst_data_path, 'L', 'W', 'FOV', 'FOV_before_windowing', 'FOV_min', 'z_f_bg', 'z_f_air', ...
+save(syst_data_path, 'L', 'W', 'FOV', 'FOV_before_windowing', 'z_f_bg', 'z_f_air', ...
     'depth_scaling', 'dx','epsilon', 'epsilon_in', 'epsilon_medium', 'epsilon_eff', ...
     'epsilon_target', 'epsilon_weak', 'PML', 'wavelength_list', 'noise_amp', ...
-    'NA', 'NA_oct', 'W_image', 'L_image', 'dy_image', 'dz_image', 'dy_image_oct', 'dz_image_rcm', ...
+    'NA', 'NA_oct', 'W_image', 'L_image', 'dy_image', 'dz_image', 'dz_image_rcm', ...
     'p', 'y_image_oct', 'y_image_ocm', ...
     'random_seed_target', 'random_seed_weak', 'target_locs', 'weak_locs', ...
     'target_density', 'weak_density', 'n_jobs', 'n_wavelengths_per_job')
