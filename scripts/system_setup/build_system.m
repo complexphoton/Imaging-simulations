@@ -80,14 +80,8 @@ depth_scaling = mean(sin(kzdx_bg)./sin(kzdx));
 z_f_air = z_f_bg/depth_scaling; % focal depth in air
 
 %% Define the scanning range of the focal spots
-y_image_start = (W + 2*PML.npixels*dx - W_image)/2;
-y_image_end = (W + 2*PML.npixels*dx + W_image)/2;
-
-y_image = y_image_start:dy_image:y_image_end;
-y_image_ocm = y_image-PML.npixels*dx-W/2;
-
-y_image = y_image_start:dy_image_oct:y_image_end;
-y_image_oct = y_image-PML.npixels*dx-W/2;
+y_image_ocm = (dy_image/2:dy_image:W_image) - W_image/2;
+y_image_oct = (dy_image_oct/2:dy_image_oct:W_image) - W_image/2;
 
 %% Generate the METIS ordering and reuse it during the R computation. 
 if produce_metis_ordering
