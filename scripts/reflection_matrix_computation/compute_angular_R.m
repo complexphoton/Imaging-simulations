@@ -43,7 +43,7 @@ fprintf('job id/total number of jobs = %d/%d.\n', job_id, n_jobs)
 %% Specify options for producing METIS orderings (produce_metis_ordering = true)
 %% or attempt to load orderings (produce_metis_ordering = false).
 ordering_dir = fullfile(data_dir, 'orderings');
-ordering_path = fullfile(ordering_dir, 'angular_R');
+ordering_path = fullfile(ordering_dir, 'angular_R.mat');
 if produce_metis_ordering
     % Create the directory for saving the ordering if not exist
     if ~exist(ordering_dir, 'dir')
@@ -91,11 +91,6 @@ win_profile = planckwin(ny_fov, p);
 %% Specify the PML
 syst.PML = PML;
 
-%% Determine the wavelength range
-wavelength_idx = (1:n_wavelengths_per_job)+(job_id-1)*n_wavelengths_per_job;
-wavelength_list = wavelength_list(wavelength_idx);
-n_wavelengths = length(wavelength_list); % number of wavelengths for this job
-
 % Get the maximum number of inputs over all wavelengths; 
 % we will need to pad additional channels for the other wavelengths to
 % use the METIS ordering.
@@ -105,9 +100,17 @@ N_prop_max = round(NA*channels.N_prop);
 syst.dx = dx;
 opts.prefactor = -2i;
 
+%% Determine the wavelength range
 if produce_metis_ordering
+    wavelength_list = wavelength_list(end);
+    n_wavelengths = 1;
+
     fprintf('computing the ordering: ');
 else
+    wavelength_idx = (1:n_wavelengths_per_job)+(job_id-1)*n_wavelengths_per_job;
+    wavelength_list = wavelength_list(wavelength_idx);
+    n_wavelengths = length(wavelength_list); % number of wavelengths for this job
+
     fprintf('computing reflection matrices: ');
     hyperspectral_R_angular = cell(n_wavelengths, 1);
     ky_list = cell(n_wavelengths, 1);
@@ -120,25 +123,27 @@ for i = 1:n_wavelengths
 
     %% Generate input profiles on the focal plane
     k0dx = 2*pi/syst.wavelength*syst.dx;
-    channels = mesti_build_channels(ny_fov, 'TM', 'periodic', k0dx, epsilon_in);
+    channels_fov = mesti_build_channels(ny_fov, 'TM', 'periodic', k0dx, epsilon_in);
 
     % Obtain wavevectors (ky, kz) in the incident medium within the NA.
-    idx_prop_NA = abs(channels.kydx_prop/(k0dx*sqrt(epsilon_in))) <= NA;   
-    kydx_NA = channels.kydx_prop(idx_prop_NA); 
-    kzdx_NA = channels.kxdx_prop(idx_prop_NA);
+    idx_prop_NA = abs(channels_fov.kydx_prop/(k0dx*sqrt(epsilon_in))) <= NA;   
+    kydx_NA = channels_fov.kydx_prop(idx_prop_NA); 
+    kzdx_NA = channels_fov.kxdx_prop(idx_prop_NA);
     N_in = length(kydx_NA);
     ky_list{i} = kydx_NA/dx; kz_list{i} = kzdx_NA/dx;
 
     % Obtain transverse profiles of propagating plane waves.
     % Each column of u is one transverse profile. Different columns are orthonormal.
-    E_i_prof = channels.fun_u(kydx_NA);
+    E_i_prof = channels_fov.fun_u(kydx_NA);
 
     % Generate the list of input profile on the focal plane:
     % E^in(z=z_f_air, y)
     E_i = zeros(ny_tot, N_prop_max);
     % Index range of the FOV on the whole system width W + 2*PML_thickness. 
-    y_i = (dx/2:dx:FOV_before_windowing) + (W+2*nPML*dx-FOV_before_windowing)/2;
+    y_i = (dx/2:dx:FOV_before_windowing) - FOV_before_windowing/2 + (W+2*nPML*dx)/2;
     y_i_idx = round(y_i/dx);
+    % shift the center of the transverse profile to y = 0
+    E_i_prof = E_i_prof.*exp(-1j*kydx_NA/dx*FOV_before_windowing/2);
     E_i(y_i_idx, 1:N_in) = reshape(win_profile, [], 1).*E_i_prof;
     
     %% Compute line source profiles
@@ -201,7 +206,7 @@ for i = 1:n_wavelengths
         R = flipud(R); % the output order is reversed from C = 'transpose(B)'.
 
         % approximately exclude the nu in C from C = 'transpose(B)'.
-        sqrt_nu_NA_fov = channels.sqrt_nu_prop(idx_prop_NA);
+        sqrt_nu_NA_fov = channels_fov.sqrt_nu_prop(idx_prop_NA);
         R = reshape(1./sqrt_nu_NA_fov.^2, [], 1).*R;
 
         % convert R to single-precision
