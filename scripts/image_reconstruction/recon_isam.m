@@ -27,7 +27,7 @@ function recon_isam(data_dir)
 
 %% Load the system data
 syst_data_path = fullfile(data_dir, 'system_data.mat');
-load(syst_data_path, 'dx', 'wavelength_list', 'epsilon_in', 'epsilon_eff', ...
+load(syst_data_path, 'dx', 'epsilon_in', 'epsilon_eff', ...
     'W_image', 'L_image', 'dy_image', 'dz_image', 'noise_amp', 'n_jobs', ...
     'n_wavelengths_per_job', 'z_f_air');
 
@@ -35,7 +35,6 @@ load(syst_data_path, 'dx', 'wavelength_list', 'epsilon_in', 'epsilon_eff', ...
 y_image = dy_image/2:dy_image:W_image;
 z_image = dz_image/2:dz_image:L_image;
 [Z, Y] = meshgrid(z_image, y_image);
-[ny_image, nz_image] = size(Z);
 
 fprintf('reconstructing images: ');
 psi = 0;
@@ -43,16 +42,15 @@ for job_id = 1:n_jobs
     textprogressbar(job_id, job_id/n_jobs*100);
 
     % load the hyperspectral R
-    load(fullfile(data_dir, 'hyperspectral_reflection_matrices', 'spatial_R', 'high_NA', num2str(job_id)), 'hyperspectral_R_spatial_diag');
-    % compute the wavelength list
-    wavelength_sublist = wavelength_list(((job_id-1)*n_wavelengths_per_job+1):min(job_id*n_wavelengths_per_job, length(wavelength_list)));
+    load(fullfile(data_dir, 'hyperspectral_reflection_matrices', 'spatial_R', 'high_NA', num2str(job_id)), ...
+        'hyperspectral_R_spatial_diag', 'wavelength_list');
 
-    for wavelength_idx = 1:length(wavelength_sublist)
-        k0dx = 2*pi/wavelength_sublist(wavelength_idx)*dx;
+    for wavelength_idx = 1:n_wavelengths_per_job
+        k0dx = 2*pi/wavelength_list(wavelength_idx)*dx;
 
         % add noise
         R_diag = hyperspectral_R_spatial_diag{wavelength_idx};
-        R_diag = R_diag + noise_amp*sqrt(mean(abs(R_diag).^2, 'all'))*(randn(size(R_diag))+1j*randn(size(R_diag)));
+        R_diag = R_diag + noise_amp*sqrt(mean(abs(R_diag).^2, 'all'))*randn(size(R_diag), 'like', 1j);
         
         % transform the spatial R to angular R
         N = 2^(nextpow2(length(R_diag)));
@@ -81,7 +79,7 @@ for job_id = 1:n_jobs
         kzdx_all = 2*asin(sqrt(sin_kzdx_over_two_sq));
         Qz_eff = -2*kzdx_all/dx;
         Qy_eff = Qy;
-        %disp(length(Qy_eff(:))); disp(length(Qz_eff(:))); disp(length(R_angular(:)))
+
         % f = finufft2d3(x,y,c,isign,eps,s,t) computes 
         % f[k] = sum_j c[j] exp(+-i (s[k] x[j] + t[k] y[j])), for k = 1, ..., nk.
         % Note spatial frequencies x, y and fourier coefs c should be
@@ -89,13 +87,11 @@ for job_id = 1:n_jobs
         Ahr = finufft2d3(single(Qy_eff(:)), single(Qz_eff(:)), single(R_angular(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
         
         % Reshape the column vector to the 2D image.
-        Ahr = reshape(Ahr, ny_image, nz_image);
+        Ahr = reshape(Ahr, size(Y));
         psi = psi + Ahr;
     end
 end
 fprintf('done\n');
-
-y_image = (dy_image/2:dy_image:W_image) - W_image/2; % shift y = 0 to the system center.
 
 % Save the intensity and phase separately since we only plot the image intensity.
 I = abs(psi).^2;
@@ -106,6 +102,9 @@ recon_img_dir = fullfile(data_dir, 'reconstructed_images');
 if ~exist(recon_img_dir, 'dir')
     mkdir(recon_img_dir);
 end
+
+% shift the center of y_image to y = 0
+y_image = y_image - W_image/2;
 
 % Normalize the image such that the averaged image intensity is 1.
 normalization_factor = mean(I, 'all');

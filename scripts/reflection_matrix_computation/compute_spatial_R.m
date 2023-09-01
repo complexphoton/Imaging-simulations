@@ -32,7 +32,8 @@ function compute_spatial_R(data_dir, job_id, use_high_NA, produce_metis_ordering
 
 %% Load the system data.
 syst_data_path = fullfile(data_dir, 'system_data.mat');
-load(syst_data_path, 'epsilon', 'epsilon_medium', 'dx', 'epsilon_in', 'z_f_air', 'PML', 'wavelength_list');
+load(syst_data_path, 'epsilon', 'epsilon_medium', 'dx', 'epsilon_in', 'W', 'L', ...
+    'z_f_air', 'PML', 'wavelength_list', 'n_jobs', 'n_wavelengths_per_job');
 
 if job_id < 1 || job_id > n_jobs
     error('Invalid job id: job id should satisfy 1 <= job_id <= n_jobs')
@@ -45,12 +46,12 @@ ordering_dir = fullfile(data_dir, 'orderings');
 if use_high_NA
     load(syst_data_path, 'NA', 'y_image_ocm');
     R_dir = fullfile(data_dir, 'hyperspectral_reflection_matrices', 'spatial_R', 'high_NA');
-    ordering_path = fullfile(ordering_dir, 'spatial_R_high_NA');
+    ordering_path = fullfile(ordering_dir, 'spatial_R_high_NA.mat');
     y_image = y_image_ocm;
 else
     load(syst_data_path, 'NA_oct', 'y_image_oct');
     R_dir = fullfile(data_dir, 'hyperspectral_reflection_matrices', 'spatial_R', 'low_NA');
-    ordering_path = fullfile(ordering_dir, 'spatial_R_low_NA');
+    ordering_path = fullfile(ordering_dir, 'spatial_R_low_NA.mat');
     y_image = y_image_oct;
     NA = NA_oct;
 end
@@ -105,23 +106,27 @@ w0 = lambda_c/(pi*NA); % Here, refractive index is already included in NA.
 % So, y.' - y_f is an ny-by-M_in matrix by implicit expansion.
 % Then, E_f is an ny-by-M_in matrix whose m-th column is the cross section
 % of the m-th Gaussian beam at z = z_f_air.
-y = (0.5:ny_tot)*dx;
+y = (0.5:ny_tot)*dx-(2*nPML*dx+W)/2;
 E_f = exp(-(y.' - y_image).^2/(w0^2));
 
 %% Specify the PML
 syst.PML = PML;
 
 %% Determine the wavelength range
-wavelength_idx = (1:n_wavelengths_per_job)+(job_id-1)*n_wavelengths_per_job;
-wavelength_list = wavelength_list(wavelength_idx);
-n_wavelengths = length(wavelength_list); % number of wavelengths for this job
 
 syst.dx = dx;
 opts.prefactor = -2i;
 
 if produce_metis_ordering
+    wavelength_list = wavelength_list(end);
+    n_wavelengths = 1;
+
     fprintf('computing the ordering: ');
 else
+    wavelength_idx = (1:n_wavelengths_per_job)+(job_id-1)*n_wavelengths_per_job;
+    wavelength_list = wavelength_list(wavelength_idx);
+    n_wavelengths = length(wavelength_list); % number of wavelengths for this job
+
     fprintf('computing reflection matrices: ');
     hyperspectral_R_spatial_diag = cell(n_wavelengths, 1);
 end
@@ -147,7 +152,7 @@ for i = 1:n_wavelengths
 
     % Backpropagate the profile from z = z_f_air to z = 0 to obtain the
     % surface source profile.
-    E_s_prop = exp(1i*kzdx_NA/syst.dx*(z_source-z_f_air)).*E_f_prop;
+    E_s_prop = exp(1i*kzdx_NA(:)/syst.dx*(z_source-z_f_air)).*E_f_prop;
 
     % Determine the line sources.
     % In a closed geometry with no PML in y, a line source of
