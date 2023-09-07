@@ -34,25 +34,28 @@ z_image = (dz_image_rcm/2:dz_image_rcm:L_image);
 [Z, Y] = meshgrid(z_image/depth_scaling, y_image);
 
 %% Reconstruct the image
-% use the center frequency for reconstruction
+% Load the R from the center frequency
 job_id = round(n_jobs/2);
-
-% load R data
-load(fullfile(data_dir, 'hyperspectral_reflection_matrices', 'angular_R', num2str(job_id)), ...
+load(fullfile(data_dir, 'hyperspectral_reflection_matrices', 'angular_R', [num2str(job_id), '.mat']), ...
     'hyperspectral_R_angular', 'ky_list', 'kz_list');
 ky = ky_list{1}; kz = kz_list{1};
 R = hyperspectral_R_angular{1};
-% add noise
+
+% Add a complex Gaussian noise to R
 R = R + noise_amp*sqrt(mean(abs(R).^2, 'all'))*randn(size(R), 'like', 1j);
 
-% The R is calculated with reference plane @ z_f_air in air for
-% mimicing experimental conditions.
-% Here, we shift the reference plane of R from the reference plane to the
-% surface.
+% Shift the reference plane of R from z = z_f_air in air to z = 0
 R = reshape(exp(1i*kz*z_f_air), [], 1).*R.*reshape(exp(1i*kz*z_f_air), 1, []);
 
-% In RCM, the beam is focused in air rather than water for
-% mimicing experimental conditions.
+% Compute \psi(\omega_c) = sum_{ba} R_{ba}(\omega_c) exp(i((ky_b-ky_a)y+(kz_b - kz_a)z)) by nufft
+% RCM = |\psi(\omega_c)|^2;
+
+% fy_{ba} = ky(b) - ky(a); fz_{ba} = -kz(b) - kz(a).
+% Here, ky and kz is a row vector with length n_prop so
+% fy and fz are n_prop-by-n_prop matrices by implicit
+% expansion.
+% Here, we use ky and kz in air because in RCM the beam is focused in air 
+% rather than water.
 fy = ky.' - ky;
 fz = -kz.' - kz;
 
@@ -61,16 +64,16 @@ fz = -kz.' - kz;
 % Note x[j], y[j] and c[j] are column vectors. The returned f is also a column vector.
 Ahr = finufft2d3(single(fy(:)), single(fz(:)), single(R(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
 
-% reshape the column vector to the 2D image.
+% Reshape the column vector to the 2D image
 I = abs(reshape(Ahr, size(Y))).^2;
 
+% Normalize the image such that the averaged intensity is 1
+I = I/mean(I, 'all');
+
+%% Save the image data
 recon_img_dir = fullfile(data_dir, 'reconstructed_images');
 if ~exist(recon_img_dir, 'dir')
     mkdir(recon_img_dir);
 end
-
-% Normalize the image such that the averaged intensity is 1.
-normalization_factor = mean(I, 'all');
-I = I/normalization_factor;
-save(fullfile(recon_img_dir, 'rcm'), 'y_image', 'z_image', 'I');
+save(fullfile(recon_img_dir, 'rcm.mat'), 'y_image', 'z_image', 'I');
 end

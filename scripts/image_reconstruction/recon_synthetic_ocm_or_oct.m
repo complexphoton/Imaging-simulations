@@ -36,17 +36,12 @@ end
 
 %% Load the system data
 syst_data_path = fullfile(data_dir, 'system_data.mat');
-load(syst_data_path, 'z_f_air', 'dx', 'wavelength_list', 'FOV_before_windowing', ...
+load(syst_data_path, 'z_f_air', 'dx', 'FOV_before_windowing', ...
     'epsilon_in', 'epsilon_eff', 'W_image', 'L_image', 'dy_image', 'dz_image', ...
     'noise_amp', 'n_jobs', 'n_wavelengths_per_job', 'NA');
 
 %% Specify the reconstruction grid
-% In the calculation of R, the input/output transverse profiles are
-% exp(1j*ky*(y-FOV_before_windowing/2)), where y = 0 corresponds to the
-% system center. The reconstruction region is located between y = [-W_image/2,
-% W_image/2]. Thus we need to shift the y-coordinate by
-% FOV_before_windowing/2.
-y_image = (dy_image/2:dy_image:W_image) + (FOV_before_windowing - W_image)/2;
+y_image = (dy_image/2:dy_image:W_image) - W_image/2;
 z_image = (dz_image/2:dz_image:L_image);
 
 if strcmpi(recon_method, 'ocm')
@@ -56,30 +51,27 @@ else
 end
 
 %% Reconstruct the image
-fprintf('reconstructing images: ');
-psi = 0;
+fprintf(['reconstructing the ', upper(recon_method),' image: ']);
+psi = 0; % complex synthetic OCM/OCT image amplitude
 for job_id = 1:n_jobs
+    % Display a text progress bar
     textprogressbar(job_id, job_id/n_jobs*100);
 
-    % Load the hyperspectral R.
-    load(fullfile(data_dir, 'hyperspectral_reflection_matrices', 'angular_R', num2str(job_id)), 'hyperspectral_R_angular');
-    % Compute the wavelength list.
-    wavelength_sublist = wavelength_list(((job_id-1)*n_wavelengths_per_job+1):min(job_id*n_wavelengths_per_job, length(wavelength_list)));
+    % Load the hyperspectral spatial R for one job
+    load(fullfile(data_dir, 'hyperspectral_reflection_matrices', 'angular_R', num2str(job_id)), ...
+        'hyperspectral_R_angular', 'wavelength_list');
 
-    for wavelength_idx = 1:length(wavelength_sublist)
-        k0dx = 2*pi/wavelength_sublist(wavelength_idx)*dx;
+    for wavelength_idx = 1:n_wavelengths_per_job
+        k0dx = 2*pi/wavelength_list(wavelength_idx)*dx;
 
-        % It is important to use the effective index rather than medium index here. 
-        % Otherwise, the imaging depth will slightly decrease and the target locations
-        % along z will shift.
         channels = mesti_build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_in, epsilon_eff);
 
-        % select wavevectors within NA.
+        % Select wavevectors within NA
         idx_NA = abs(channels.L.kydx_prop/(k0dx*sqrt(epsilon_in))) <= NA;
         idx_r_NA = abs(channels.L.kydx_prop(idx_NA)/(k0dx*sqrt(epsilon_in))) <= NA_method;
         n_prop_NA = sum(idx_r_NA);
 
-        % add noise
+        % Add a complex Gaussian noise to R
         R = hyperspectral_R_angular{wavelength_idx};
         R = R + noise_amp*sqrt(mean(abs(R).^2, 'all'))*(randn(size(R))+1j*randn(size(R)));
         R = R(idx_r_NA, idx_r_NA);
@@ -108,28 +100,23 @@ for job_id = 1:n_jobs
         kz_eff = channels.R.kxdx_prop(round(end/2))/dx;
         time_gating_factor = exp(-2i*(kz_eff*z_image-kz_in*z_f_air));
 
-        % Compute time-gated reflection fields.
+        % Compute time-gated reflection fields
         psi = psi + time_gating_factor.*reshape(Ahr, [], 1);
     end
 end
 fprintf('done\n');
 
-recon_img_dir = fullfile(data_dir, 'reconstructed_images');
-
-if ~exist(recon_img_dir, 'dir')
-    mkdir(recon_img_dir);
-end
-
-% Define the y-coordinate for plotting, which puts y = 0 along the system
-% center.
-y_image = (dy_image/2:dy_image:W_image) - W_image/2;
-
+% Obtain the image intensity and phase
 I = abs(psi).^2;
 phase_profile = angle(psi);
 
-% Normalize the image such that the averaged image intensity is 1.
-normalization_factor = mean(I, 'all');
-I = I/normalization_factor;
+% Normalize the image such that the averaged image intensity is 1
+I = I/mean(I, 'all');
 
-save(fullfile(recon_img_dir, ['synthetic_', recon_method]), 'y_image', 'z_image', 'I', 'phase_profile');
+%% Save the image data
+recon_img_dir = fullfile(data_dir, 'reconstructed_images');
+if ~exist(recon_img_dir, 'dir')
+    mkdir(recon_img_dir);
+end
+save(fullfile(recon_img_dir, ['synthetic_', recon_method, '.mat']), 'y_image', 'z_image', 'I', 'phase_profile');
 end

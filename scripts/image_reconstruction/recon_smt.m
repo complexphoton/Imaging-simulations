@@ -38,54 +38,50 @@ z_image = dz_image/2:dz_image:L_image;
 
 %% Reconstruct the image
 psi = 0; % complex SMT image amplitude
-fprintf('reconstructing the image: ');
+fprintf('reconstructing the SMT image: ');
 for job_id = 1:n_jobs
-    textprogressbar(job_id, job_id/n_jobs*100);
+    % Display a text progress bar
+    textprogressbar(job_id, job_id/n_jobs*100); 
 
-    % load the hyperspectral R
+    % Load the hyperspectral angular R for one job
     load(fullfile(data_dir, 'hyperspectral_reflection_matrices', 'angular_R', [num2str(job_id), '.mat']), ...
         'hyperspectral_R_angular', 'wavelength_list', 'kz_list');
 
     for i = 1:n_wavelengths_per_job
-        
-        % specify wavevectors
-        kz = kz_list{i};
-        n_prop_NA = length(kz);
+        R = hyperspectral_R_angular{i};
 
-        % It is important to use the effective index rather than medium index here. 
-        % Otherwise, the imaging depth will slightly decrease and the target locations
-        % along z will shift.
+        % Add a complex Gaussian noise to R
+        R = R + noise_amp*sqrt(mean(abs(R).^2, 'all'))*randn(size(R), 'like', 1j);
+
+        % Shift the reference plane of R from z = z_f_air in air to z = 0
+        % In principle, we should add the transmission matrix (T) of the sample 
+        % interface to correct for the sample-induced aberration. But in the
+        % case of air-water interface with NA = 0.5, T is diagonal and almost
+        % constant over angles. Thus the effect of not correcting this
+        % refraction should be negligible.
+        kz = kz_list{i};
+        R = reshape(exp(1i*kz*z_f_air), [], 1).*R.*reshape(exp(1i*kz*z_f_air), 1, []);
+
+        % Obtain wavevectors in the effective index 
+        % It is important to use wavevectors in the effective index rather 
+        % than medium index to reconstruct the SMT image. Otherwise, the imaging depth 
+        % will slightly decrease and the target locations along z will shift.
         k0dx = 2*pi/wavelength_list(i)*dx;
         channels = mesti_build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_eff);
 
-        % add noise to mimic the experiment condition.
-        R = hyperspectral_R_angular{i};
-        R = R + noise_amp*sqrt(mean(abs(R).^2, 'all'))*randn(size(R), 'like', 1j);
-
-        % The R is calculated with reference plane @ z_f_air in air for
-        % mimicing experimental conditions.
-        % Here, we shift the reference plane of r from the reference plane to the
-        % surface.
-        % In principle, we should add the t of the sample interface to
-        % correct for the sample-induced aberration. But in the
-        % case of air-water interface with NA = 0.5, t is diagonal and almost
-        % constant over angles. Thus the effect of not correcting this
-        % refraction should be negligible.
-        R = reshape(exp(1i*kz*z_f_air), [], 1).*R.*reshape(exp(1i*kz*z_f_air), 1, []);
-
-        % Obtain wavevectors in effective index.
         % Becasue ky remains unchanged during the refraction at the air-background interface,
         % the wavevectors are selected such that ky_{bg}(i) = ky_{air}(i).
-        idx_NA = (1:n_prop_NA) + round((channels.N_prop-n_prop_NA)/2);
-        ky_bg = channels.kydx_prop(idx_NA)/dx;
-        kz_bg = channels.kxdx_prop(idx_NA)/dx;
+        n_prop = length(kz);
+        idx = (1:n_prop) + round((channels.N_prop-n_prop)/2);
+        ky_bg = channels.kydx_prop(idx)/dx;
+        kz_bg = channels.kxdx_prop(idx)/dx;
 
-        %% Compute \psi(\omega) = sum_{ba} R_{ba}(\omega) exp(i((ky_b-ky_a)y+(kz_b - kz_a)z)) by nufft.
+        % Compute \psi(\omega) = sum_{ba} R_{ba}(\omega) exp(i((ky_b-ky_a)y+(kz_b - kz_a)z)) by nufft
         % SMT = |sum_{\omega} \psi(\omega)|^2;
 
-        % fy_{ba} = ky_bg_NA(b)-ky_bg_NA(a); fz_{ba} = -kz_bg_NA(b) - kz_bg_NA(a).
-        % Here, ky_bg_NA/kz_bg_NA is a row vector with length n_prop_NA so
-        % fy and fz are n_prop_NA-by-n_prop_NA matrices by implicit
+        % fy_{ba} = ky_bg(b) - ky_bg(a); fz_{ba} = -kz_bg(b) - kz_bg(a).
+        % Here, ky_bg and kz_bg is a row vector with length n_prop so
+        % fy and fz are n_prop-by-n_prop matrices by implicit
         % expansion.
         fy = ky_bg.' - ky_bg;
         fz = -kz_bg.' - kz_bg;
@@ -95,25 +91,24 @@ for job_id = 1:n_jobs
         % Note x[j], y[j] and c[j] are column vectors. The returned f is also a column vector.
         Ahr = finufft2d3(single(fy(:)), single(fz(:)), single(R(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
 
-        % reshape the column vector to the 2D image
+        % Reshape the column vector to the 2D image
         Ahr = reshape(Ahr, size(Y));
         psi = psi + Ahr;
     end
 end
 fprintf('done\n');
 
+% Obtain the image intensity and phase
+I = abs(psi).^2;
+phase_profile = angle(psi);
+
+% Normalize the image such that the averaged intensity is 1
+I = I/mean(I, 'all');
+
+%% Save the image data
 recon_img_dir = fullfile(data_dir, 'reconstructed_images');
 if ~exist(recon_img_dir, 'dir')
     mkdir(recon_img_dir);
 end
-
-% Save the intensity and phase separately since we only plot the image intensity.
-I = abs(psi).^2;
-phase_profile = angle(psi);
-
-% Normalize the image such that the averaged intensity is 1.
-normalization_factor = mean(I, 'all');
-I = I/normalization_factor;
 save(fullfile(recon_img_dir, 'smt.mat'), 'y_image', 'z_image', 'I', 'phase_profile');
-
 end

@@ -42,29 +42,35 @@ load(syst_data_path, 'L_image', 'z_f_air', 'dx', 'dz_image',  ...
 z_image = dz_image/2:dz_image:L_image;
 
 %% Reconstruct the image
-fprintf('reconstructing images: ');
-psi = 0;
+fprintf(['reconstructing the ', upper(recon_method),' image: ']);
+psi = 0; % complex OCM/OCT image amplitude
 for job_id = 1:n_jobs
+    % Display a text progress bar
     textprogressbar(job_id, job_id/n_jobs*100);
 
-    % load the hyperspectral R
+    % Load the hyperspectral spatial R for one job
     if strcmpi(recon_method, 'ocm')
         R_dir = fullfile(data_dir, 'hyperspectral_reflection_matrices', 'spatial_R', 'high_NA');
     else
         R_dir = fullfile(data_dir, 'hyperspectral_reflection_matrices', 'spatial_R', 'low_NA');
     end
-    load(fullfile(R_dir, num2str(job_id)), 'hyperspectral_R_spatial_diag', ...
+    load(fullfile(R_dir, [num2str(job_id), '.mat']), 'hyperspectral_R_spatial_diag', ...
         'wavelength_list', 'y_image');
-    for i = 1:n_wavelengths_per_job
-        k0dx = 2*pi/wavelength_list(i)*dx;
 
-        % It is important to use epsilon_eff, rather than epsilon_medium,
-        % to obtain kz_eff. Otherwise, the target locations along z will be inaccurate/shifted.
-        channels = mesti_build_channels(1, 'TM', 'periodic', k0dx, epsilon_in, epsilon_eff);
+    for i = 1:n_wavelengths_per_job
         R_diag = hyperspectral_R_spatial_diag{i};
 
-        % add noise 
+        % Add a complex Gaussian noise to R
         R_diag = R_diag + noise_amp*sqrt(mean(abs(R_diag).^2, 'all'))*randn(size(R_diag), 'like', 1j);
+
+        % Obtain wavevectors at normal incidence in the air and effective 
+        % index for computing the time gating factor
+        % It is important to use epsilon_eff, rather than epsilon_medium,
+        % to obtain kz_bg. Otherwise, the target locations along z will be inaccurate/shifted.
+        k0dx = 2*pi/wavelength_list(i)*dx;
+        channels = mesti_build_channels(1, 'TM', 'periodic', k0dx, epsilon_in, epsilon_eff);
+        kz_in = channels.L.kxdx_prop(round(end/2))/dx;
+        kz_bg = channels.R.kxdx_prop(round(end/2))/dx;
 
         % The time-gating factor = exp(-i*omega*t_gated), where t_gated = 2(z-z_f_bg)/v_g_mid
         % and v_g_mid is the group velocity at the center frequency in epsilon_medium.
@@ -73,32 +79,29 @@ for job_id = 1:n_jobs
         % travels a round trip (=2(z-z_f_bg)) before it is captured thus
         % the time-gated reflection light from depth z should be sampled at t =
         % 2(z-z_f_bg)/v_g_mid.
-
-        % However, that expression does not account for the numerical dispersion in v_g. 
+        % However, the expression above does not account for the numerical dispersion in v_g. 
         % Thus, we replace omega/v_g_mid with kz at the normal incident, which is calculated
         % at the corresponding frequency.
-        kz_in = channels.L.kxdx_prop(round(end/2))/dx;
-        kz_eff = channels.R.kxdx_prop(round(end/2))/dx;
-        time_gating_factor = single(exp(-2i*(kz_eff*z_image-kz_in*z_f_air)));
+        time_gating_factor = single(exp(-2i*(kz_bg*z_image-kz_in*z_f_air)));
 
-        % compute time-gated reflection fields
+        % Compute time-gated reflection field
         psi = psi + time_gating_factor.*R_diag;
     end
 end
 fprintf('done\n');
 
-% Save the intensity and phase separately since we only plot the image intensity.
+% Obtain the image intensity and phase
 I = abs(psi).^2;
 phase_profile = angle(psi);
 
+% Normalize the image such that the averaged image intensity is 1
+I = I/mean(I, 'all');
+
+%% Save the image data
 recon_img_dir = fullfile(data_dir, 'reconstructed_images');
 if ~exist(recon_img_dir, 'dir')
     mkdir(recon_img_dir);
 end
-
-% Normalize the image such that the averaged image intensity is 1.
-normalization_factor = mean(I, 'all');
-I = I/normalization_factor;
-save(fullfile(recon_img_dir, recon_method), 'y_image', 'z_image', 'I', 'phase_profile');
+save(fullfile(recon_img_dir, [recon_method, '.mat']), 'y_image', 'z_image', 'I', 'phase_profile');
 end
 
