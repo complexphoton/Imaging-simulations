@@ -1,4 +1,33 @@
 function epsilon = generate_permittivity_profile(W, L, dy, dz, epsilon_medium, scatterer_locs, scatterer_diam, scatterer_epsilon)
+%generate_permittivity_profile Generate the permittivity profile given scatterer locations.
+%    epsilon = generate_permittivity_profile(W, L, dy, dz, epsilon_medium, scatterer_locs, scatterer_diam, scatterer_epsilon)
+%
+%  === Input Arguments ===
+%  W, L (scalar, real): 
+%    The width (W) and length (L) of the system in micron.
+%  dy, dz (scalar, real):
+%    The discretization mesh size along y and z in micron.
+%  epsilon_medium (scalar, real):
+%    The permittivity of background medium.
+%  scatterer_locs (numeric matrix, real):
+%    The scatterer locations: an N-by-2 matrix, where N is the
+%    number of scatterers. Each row corresponds to one scatterer location (z, y) in
+%    micron.
+%  scatterer_diam (vector, real):
+%    The scatterer diameters: a length-N vector, where N is
+%    the number of scatterers. Each element corresponds to one scatterer
+%    diameter in micron.
+%  scatterer_epsilon (vector, real):
+%    The scatterer permittivity: a length-N vector, where N is
+%    the number of scatterers. Each element corresponds to the permittivity
+%    of one scatterer.
+%    
+%  === Output Arguments ===
+%  epsilon (numeric matrix):
+%    The permittivity profile.
+%
+% === Notes ===
+
 ny = W/dy; nz = L/dz;
 subpixel_size = 5;
 
