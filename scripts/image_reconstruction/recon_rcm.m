@@ -31,7 +31,17 @@ load(syst_data_path, 'z_f_air', 'depth_scaling', 'W_image', 'L_image', ...
 y_image = (dy_image/2:dy_image:W_image) - W_image/2;
 z_image = (dz_image_rcm/2:dz_image_rcm:L_image);
 % The image needs to be scaled along the z-axis due to index mismatch
-[Z, Y] = meshgrid(z_image/depth_scaling, y_image);
+z_image_recon = z_image/depth_scaling;
+ny = length(y_image); nz = length(z_image);
+
+%% Check if Flatiron nufft exists
+use_finufft = exist('finufft2d3', 'file');
+if use_finufft
+    [Z, Y] = meshgrid(z_image_recon, y_image);
+    fprintf('reconstructing the RCM image with Flatiron nufft...\n');
+else
+    fprintf('reconstructing the RCM image with MATLAB nufft...\n');
+end
 
 %% Reconstruct the image
 % Load the R from the center frequency
@@ -59,13 +69,17 @@ R = reshape(exp(1i*kz*z_f_air), [], 1).*R.*reshape(exp(1i*kz*z_f_air), 1, []);
 fy = ky.' - ky;
 fz = -kz.' - kz;
 
-% f = finufft2d3(x,y,c,isign,eps,s,t) computes
-% f[k] = sum_j c[j] exp(+-i (s[k] x[j] + t[k] y[j])), for k = 1, ..., nk.
-% Note x[j], y[j] and c[j] are column vectors. The returned f is also a column vector.
-Ahr = finufft2d3(single(fy(:)), single(fz(:)), single(R(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
+if use_finufft
+    % f = finufft2d3(x,y,c,isign,eps,s,t) computes
+    % f[k] = sum_j c[j] exp(+-i (s[k] x[j] + t[k] y[j])), for k = 1, ..., nk.
+    % Note x[j], y[j] and c[j] are column vectors. The returned f is also a column vector.
+    Ahr = finufft2d3(single(fy(:)), single(fz(:)), single(R(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
+else
+    Ahr = nufftn(single(R), [-single(fy(:)/(2*pi)), -single(fz(:)/(2*pi))], {single(y_image), single(z_image_recon)});
+end
 
 % Reshape the column vector to the 2D image
-I = abs(reshape(Ahr, size(Y))).^2;
+I = abs(reshape(Ahr, ny, nz)).^2;
 
 % Normalize the image such that the averaged intensity is 1
 I = I/mean(I, 'all');

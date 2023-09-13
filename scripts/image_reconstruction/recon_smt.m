@@ -33,12 +33,20 @@ load(syst_data_path, 'z_f_air', 'dx', 'FOV_before_windowing', ...
 
 %% Specify the reconstruction grid
 y_image = (dy_image/2:dy_image:W_image) - W_image/2;
-z_image = dz_image/2:dz_image:L_image; 
-[Z, Y] = meshgrid(z_image, y_image);
+z_image = dz_image/2:dz_image:L_image;
+ny = length(y_image); nz = length(z_image);
+
+%% Check if Flatiron nufft exists
+use_finufft = exist('finufft2d3', 'file');
+if use_finufft
+    [Z, Y] = meshgrid(z_image, y_image);
+    fprintf('reconstructing the SMT image with Flatiron nufft: ');
+else
+    fprintf('reconstructing the SMT image with MATLAB nufft: ');
+end
 
 %% Reconstruct the image
 psi = 0; % complex SMT image amplitude
-fprintf('reconstructing the SMT image: ');
 for job_id = 1:n_jobs
     % Display a text progress bar
     textprogressbar(job_id, job_id/n_jobs*100); 
@@ -86,13 +94,17 @@ for job_id = 1:n_jobs
         fy = ky_bg.' - ky_bg;
         fz = -kz_bg.' - kz_bg;
 
-        % f = finufft2d3(x,y,c,isign,eps,s,t) computes
-        % f[k] = sum_j c[j] exp(+-i (s[k] x[j] + t[k] y[j])), for k = 1, ..., nk.
-        % Note x[j], y[j] and c[j] are column vectors. The returned f is also a column vector.
-        Ahr = finufft2d3(single(fy(:)), single(fz(:)), single(R(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
+        if use_finufft
+             % f = finufft2d3(x,y,c,isign,eps,s,t) computes
+             % f[k] = sum_j c[j] exp(+-i (s[k] x[j] + t[k] y[j])), for k = 1, ..., nk.
+             % Note x[j], y[j] and c[j] are column vectors. The returned f is also a column vector.
+            Ahr = finufft2d3(single(fy(:)), single(fz(:)), single(R(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
+        else
+            Ahr = nufftn(single(R), [-single(fy(:)/(2*pi)), -single(fz(:)/(2*pi))], {single(y_image), single(z_image)});
+        end
 
         % Reshape the column vector to the 2D image
-        Ahr = reshape(Ahr, size(Y));
+        Ahr = reshape(Ahr, ny, nz);
         psi = psi + Ahr;
     end
 end

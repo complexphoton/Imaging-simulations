@@ -34,9 +34,17 @@ load(syst_data_path, 'dx', 'epsilon_in', 'epsilon_eff', ...
 %% Specify the reconstruction grid
 y_image = dy_image/2:dy_image:W_image;
 z_image = dz_image/2:dz_image:L_image;
-[Z, Y] = meshgrid(z_image, y_image);
+ny = length(y_image); nz = length(z_image);
 
-fprintf('reconstructing the ISAM image: ');
+%% Check if Flatiron nufft exists
+use_finufft = exist('finufft2d3', 'file');
+if use_finufft
+    [Z, Y] = meshgrid(z_image, y_image);
+    fprintf('reconstructing the ISAM image with Flatiron nufft: ');
+else
+    fprintf('reconstructing the ISAM image with MATLAB nufft: ');
+end
+
 psi = 0; % complex ISAM image amplitude
 for job_id = 1:n_jobs
     % Display a text progress bar
@@ -86,14 +94,17 @@ for job_id = 1:n_jobs
         %% Compute \psi(\omega) = sum_{ba} R_{ba}(\omega) exp(i(Qy_{ba}y+Qz_{ba}z)) by nufft
         % ISAM = |sum_{\omega} \psi(\omega)|^2;
 
-        % f = finufft2d3(x,y,c,isign,eps,s,t) computes 
-        % f[k] = sum_j c[j] exp(+-i (s[k] x[j] + t[k] y[j])), for k = 1, ..., nk.
-        % Note spatial frequencies x, y and fourier coefs c should be
-        % column vectors. The returned f is also a column vector.
-        Ahr = finufft2d3(single(Qy_eff(:)), single(Qz_eff(:)), single(R_angular(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
-        
+        if use_finufft
+             % f = finufft2d3(x,y,c,isign,eps,s,t) computes
+             % f[k] = sum_j c[j] exp(+-i (s[k] x[j] + t[k] y[j])), for k = 1, ..., nk.
+             % Note x[j], y[j] and c[j] are column vectors. The returned f is also a column vector.
+            Ahr = finufft2d3(single(Qy_eff(:)), single(Qz_eff(:)), single(R_angular(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
+        else
+            Ahr = nufftn(single(R_angular), [-single(Qy_eff(:)/(2*pi)), -single(Qz_eff(:)/(2*pi))], {single(y_image), single(z_image)});
+        end
+
         % Reshape the column vector to the 2D image
-        Ahr = reshape(Ahr, size(Y));
+        Ahr = reshape(Ahr, ny, nz);
         psi = psi + Ahr;
     end
 end

@@ -44,6 +44,14 @@ load(syst_data_path, 'z_f_air', 'dx', 'FOV_before_windowing', ...
 y_image = (dy_image/2:dy_image:W_image) - W_image/2;
 z_image = (dz_image/2:dz_image:L_image);
 
+%% Check if Flatiron nufft exists
+use_finufft = exist('finufft2d3', 'file');
+if use_finufft
+    fprintf(['reconstructing the ', upper(recon_method),' image with Flatiron nufft: ']);
+else
+    fprintf(['reconstructing the ', upper(recon_method),' image with MATLAB nufft: ']);
+end
+
 if strcmpi(recon_method, 'ocm')
     NA_method = 0.5;
 else
@@ -51,7 +59,6 @@ else
 end
 
 %% Reconstruct the image
-fprintf(['reconstructing the ', upper(recon_method),' image: ']);
 psi = 0; % complex synthetic OCM/OCT image amplitude
 for job_id = 1:n_jobs
     % Display a text progress bar
@@ -83,8 +90,14 @@ for job_id = 1:n_jobs
         ky_bg = channels.R.kydx_prop(idx_bg_NA)/dx;
 
         fy = ky_bg.' - ky_bg;
-        Ahr = finufft1d3(single(fy(:)), single(R(:)), 1, 1e-2, single(y_image));
-        
+        %Ahr = finufft1d3(single(fy(:)), single(R(:)), 1, 1e-2, single(y_image));
+
+        if use_finufft
+            Ahr = finufft1d3(single(fy(:)), single(R(:)), 1, 1e-2, single(y_image));
+        else
+            Ahr = nufftn(single(R(:)), -single(fy(:)/(2*pi)), {single(y_image)});
+        end
+
         % The time-gating factor = exp(-i*omega*t_gated), where t_gated = 2(z-z_f_bg)/v_g_mid
         % and v_g_mid is the group velocity at the center frequency in epsilon_medium.
         % In this expression, z-z_f_bg is the distance between the imaging
