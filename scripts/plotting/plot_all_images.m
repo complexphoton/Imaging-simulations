@@ -104,7 +104,7 @@ for ii = 1:length(plotting_list)
     end
 
     axis image
-    colormap(colorcet_L3());
+    colormap(colorcet('L3'));
     clim(cell2mat(clim_dict([lower(plotting_name), '_', num2str(system_idx)])));
 
     set(gca,'TickDir','out');
