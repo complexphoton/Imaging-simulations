@@ -19,15 +19,14 @@ We use the scattering matrix to perform numerical modeling. The scattering matri
 ## Installation
 
 ### Prerequisites
-The code is written in MATLAB so no compilation is required. But you will need the following dependencies to run different components of the code:
+The code is written in MATLAB so no compilation is required. But you need the following dependencies to run different components of the code:
 
-- System setup: [MESTI](https://github.com/complexphoton/MESTI.m), [METIS](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview) (optional, a package for producing the matrix ordering)
-- Reflection matrix computation: [MESTI](https://github.com/complexphoton/MESTI.m), [MUMPS](https://mumps-solver.org/index.php)
-- Image reconstruction: [MESTI](https://github.com/complexphoton/MESTI.m), [FINUFFT](https://finufft.readthedocs.io/en/latest/)
+- System setup: [MESTI](https://github.com/complexphoton/MESTI.m), [METIS](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview) (optional)
+- Reflection matrix computation: [MESTI](https://github.com/complexphoton/MESTI.m), [MUMPS](https://mumps-solver.org/index.php) (optional but highly recommended)
+- Image reconstruction: [MESTI](https://github.com/complexphoton/MESTI.m), [FINUFFT](https://finufft.readthedocs.io/en/latest/) (optional)
+- Field profile computattion: [MESTI](https://github.com/complexphoton/MESTI.m), [MUMPS](https://mumps-solver.org/index.php)
 
 Note that if you plan to use one component of the code, there is no need to install dependencies of other components.
-
-Later we may add an option in the image reconstruction code to use the [nufftn](https://www.mathworks.com/help/matlab/ref/double.nufftn.html) from MATLAB, which does not require the compilation of FINUFFT but is slower.
 
 ### Install Dependencies
 
@@ -37,25 +36,29 @@ MESTI is required for all components of the code. The installation of MESTI is s
 
 #### METIS
 
-METIS produces high-quality orderings for matrix factorization, which accelerates the reflection matrix computation. In our large system, the computation time is shorten by 20%.
+METIS produces high-quality orderings for matrix factorization, which accelerates the reflection matrix computation. In our large system, the computation time is shorten by about 20%.
 
 Download the source code from [here](http://glaros.dtc.umn.edu/gkhome/metis/metis/download). No need to use the OpenMP version. You can compile METIS using the default option:
 ```
 $ make config
 $ make
 ```
-
+265s
 Once the compilation is finished, you can find the METIS library under ```metis-x.x.x/build/*/libmetis```. The library path and header file path (```metis-x.x.x/include/```) will be used later for the compilation of MUMPS. There is no need to add METIS to the MATLAB search path. 
 
 #### MUMPS
 
-The detailed instructions for compiling MUMPS can be found [here](https://github.com/complexphoton/MESTI.m/tree/main/mumps). Be cautious that the compilation of MUMPS and its MATLAB interface can take significant effort.
+In the reflection matrix computation, we need MUMPS to perform the partial factorization in the APF method. It is possible to run the code without MUMPS but it will use another method and the computation time will be much longer. 
+
+The detailed instructions for compiling MUMPS can be found [here](https://github.com/complexphoton/MESTI.m/tree/main/mumps).
 
 #### FINUFFT
 
-Download the source code from [here](https://github.com/flatironinstitute/finufft/releases). There are two routes to compile: the new CMake-based route and the old GNU makefile-based route. Note that the CMake-based route is still [under development](https://github.com/flatironinstitute/finufft/pull/254), which does not support many building options. You can take the makefile-based route for now.
+Most of our image reconstruction code uses non-uniform fast Fourier transforms (NUFFTs). FINUFFT is a library to perform the NUFFTs efficiently. MATLAB also implements its own NUFFT function in R2020a and improve the performance in R2022a and R2023b. The code will use the MATLAB NUFFT if FINUFFT is not installed. We found that on R2023b the reconstruction time is comparable with FINUFFT or MATLAB NUFFT. Thus, you can simply use the MATLAB NUFFT if your MATLAB version is R2023b or later.
 
-There is a caveat in compiling the MATLAB interface on Mac. You may get a warning of ```license has not been accepted``` from Xcode and a following error of ```no supported compiler was found```. The same error can happen to the MUMPS MATLAB interface. The simple [solution](https://finufft.readthedocs.io/en/latest/install.html#the-clang-route-default) is typing 
+To install FINUFFT, download the source code from [here](https://github.com/flatironinstitute/finufft/releases). There are two routes to compile: the new CMake-based route and the old GNU makefile-based route. Note that the CMake-based route is still [under development](https://github.com/flatironinstitute/finufft/pull/254), which does not support many building options. You can take the makefile-based route for now.
+
+There is a caveat in compiling the MATLAB interface on Mac. You may get a warning of ```license has not been accepted``` from Xcode and a following error of ```no supported compiler was found```. The same error can happen to the MATLAB interface of MUMPS. The simple [solution](https://finufft.readthedocs.io/en/latest/install.html#the-clang-route-default) is typing 
 
 ```
 $ /usr/libexec/PlistBuddy -c 'Add :IDEXcodeVersionForAgreedToGMLicense string 10.0' ~/Library/Preferences/com.apple.dt.Xcode.plist
@@ -72,7 +75,7 @@ To get started, we suggest running the image reconstruction code for the system 
 
 After obtaining the reconstructed images, you may download the z-dependent weights and use the ```scripts/plotting/plot_all_images.m``` to plot all images.
 
-Later we will upload a small system for testing. All the computation of the small-system example can be done on a laptop.
+In addition, we upload a small system example where all computation can be done on a local machine. The total computation time for the reflection matrix is about 15 mins on a MacBook Air with Apple M1 chip. The image reconstruction takes a few seconds.
 
 ## Usage
 
@@ -104,9 +107,13 @@ This component (```Imaging-simulations/depth_dependent_weights```) generates dep
 
 The weight parameters for all images are defined in ```data_dir/z_z_dependent_weights/get_weight_parameters```. You specify the imaging method in the script. The script will generate the weight and plot the weight and the maximum image intensity at each depth. As a rule of thumb, you should tune the weight parameters such that trend of both curves matches. You can specify the option of saveing the weight to true after the tunning. The weight will be saved under ```data_dir/z_dependent_weights```.
 
+### Field profile computation
+
+This component (```Imaging-simulations/field_profile_computation```) contains the script for computing field profiles with the plane wave or focused Gaussiab beam input. 
+
 ### Plotting
 
-This component (```Imaging-simulations/plotting```) consists of a script for plotting the ground truth and reconstructed images. Later we may add another component for computing the field profile and the corresponding plotting script.
+This component (```Imaging-simulations/plotting```) consists of some plotting scripts. the ground truth, reconstructed images and field profiles.
 
 You should specify the data directory ```data_dir``` and the list of imaging methods. If you have generated depth-dependent weights for those methods, you can set the option of applying weights to true. The script will load the image data from ```data_dir/reconstructed_images```, divide the image intensity by the depth-dependent weight if applicable, and plot the images. It also plots the ground truth if you includes "ground_truth" in the list of imaging methods. By setting the option of saving figures to true, you can save the JPEG image under ```Imaging-simulations/figs/[system_name]```. 
 
