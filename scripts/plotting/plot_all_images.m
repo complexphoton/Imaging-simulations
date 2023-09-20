@@ -22,12 +22,15 @@ switch system_idx
     case 0
         data_dir = fullfile('.', 'data', 'small_system');
         figs_dir = fullfile('.', 'figs', 'small_system', 'reconstructed_images');
+        target_diam = 0.5;
     case 1
         data_dir = fullfile('.', 'data', 'large_system');
         figs_dir = fullfile('.', 'figs', 'large_system', 'reconstructed_images');
+        target_diam = 1.0;
     case 2
         data_dir = fullfile('.', 'data', 'large_system_no_weak');
         figs_dir = fullfile('.', 'figs', 'large_system_no_weak', 'reconstructed_images');
+        target_diam = 1.0;
     otherwise
         error("Undefined system index!")
 end
