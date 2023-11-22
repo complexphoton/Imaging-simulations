@@ -1,4 +1,4 @@
-function recon_smt(data_dir)
+function recon_smt(data_dir, correct_for_index_mismatch)
 %recon_smt Reconstruct scattering matrix tomography (SMT) in reflection mode.
 %    recon_smt(data_dir)
 %
@@ -7,6 +7,8 @@ function recon_smt(data_dir)
 %    The data directory where data_dir/system_data.mat stores
 %    system data and data_dir/hyperspectral_reflection_matrices/angular_R stores the
 %    angular reflection matrices.
+%  correct_for_index_mismatch (logical scalar; optional, defaults to true):
+%    Whether to correct for the index-mismatch aberration. 
 %
 %  === Outputs ===
 %  There is no output arguement. The following variables will be saved in
@@ -25,21 +27,34 @@ function recon_smt(data_dir)
 % z = [0, L_image], where W_image and L_image is defined during the system
 % setup.
 
+arguments
+    data_dir 
+    correct_for_index_mismatch = true
+end
+
 %% Load the system data
 syst_data_path = fullfile(data_dir, 'system_data.mat');
 load(syst_data_path, 'z_f_air', 'dx', 'FOV_before_windowing', ...
-    'epsilon_eff', 'W_image', 'L_image', 'dy_image', 'dz_image', ...
-    'noise_amp', 'n_jobs', 'n_wavelengths_per_job');
+    'epsilon_eff', 'epsilon_in', 'W_image', 'L_image', 'dy_image', 'dz_image', ...
+    'depth_scaling', 'noise_amp', 'n_jobs', 'n_wavelengths_per_job');
 
 %% Specify the reconstruction grid
 y_image = (dy_image/2:dy_image:W_image) - W_image/2;
 z_image = dz_image/2:dz_image:L_image;
 ny = length(y_image); nz = length(z_image);
 
+if correct_for_index_mismatch
+    epsilon_recon = epsilon_eff;
+    z_image_recon = z_image;
+else
+    epsilon_recon = epsilon_in;
+    z_image_recon = z_image/depth_scaling;
+end
+
 %% Check if Flatiron nufft exists
 use_finufft = exist('finufft2d3', 'file');
 if use_finufft
-    [Z, Y] = meshgrid(z_image, y_image);
+    [Z, Y] = meshgrid(z_image_recon, y_image);
     fprintf('reconstructing the SMT image with Flatiron nufft: ');
 else
     fprintf('reconstructing the SMT image with MATLAB nufft: ');
@@ -67,32 +82,32 @@ for job_id = 1:n_jobs
         % case of air-water interface with NA = 0.5, T is diagonal and almost
         % constant over angles. Thus the effect of not correcting this
         % refraction should be negligible.
-        kz = kz_list{i};
-        R = reshape(exp(1i*kz*z_f_air), [], 1).*R.*reshape(exp(1i*kz*z_f_air), 1, []);
+        kz_in = kz_list{i};
+        R = reshape(exp(1i*kz_in*z_f_air), [], 1).*R.*reshape(exp(1i*kz_in*z_f_air), 1, []);
 
         % Obtain wavevectors in the effective index 
         % It is important to use wavevectors in the effective index rather 
         % than medium index to reconstruct the SMT image. Otherwise, the imaging depth 
         % will slightly decrease and the target locations along z will shift.
         k0dx = 2*pi/wavelength_list(i)*dx;
-        channels = mesti_build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_eff);
+        channels = mesti_build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_recon);
 
         % Becasue ky remains unchanged during the refraction at the air-background interface,
-        % the wavevectors are selected such that ky_{bg}(i) = ky_{air}(i).
-        n_prop = length(kz);
+        % the wavevectors are selected such that ky_{recon}(i) = ky_{air}(i).
+        n_prop = length(kz_in);
         idx = (1:n_prop) + round((channels.N_prop-n_prop)/2);
-        ky_bg = channels.kydx_prop(idx)/dx;
-        kz_bg = channels.kxdx_prop(idx)/dx;
+        ky_recon = channels.kydx_prop(idx)/dx;
+        kz_recon = channels.kxdx_prop(idx)/dx;
 
         % Compute \psi(\omega) = sum_{ba} R_{ba}(\omega) exp(i((ky_b-ky_a)y+(kz_b - kz_a)z)) by nufft
         % SMT = |sum_{\omega} \psi(\omega)|^2;
 
-        % fy_{ba} = ky_bg(b) - ky_bg(a); fz_{ba} = -kz_bg(b) - kz_bg(a).
-        % Here, ky_bg and kz_bg is a row vector with length n_prop so
+        % fy_{ba} = ky_recon(b) - ky_recon(a); fz_{ba} = -kz_recon(b) - kz_recon(a).
+        % Here, ky_recon and kz_recon is a row vector with length n_prop so
         % fy and fz are n_prop-by-n_prop matrices by implicit
         % expansion.
-        fy = ky_bg.' - ky_bg;
-        fz = -kz_bg.' - kz_bg;
+        fy = ky_recon.' - ky_recon;
+        fz = -kz_recon.' - kz_recon;
 
         if use_finufft
              % f = finufft2d3(x,y,c,isign,eps,s,t) computes
@@ -100,11 +115,20 @@ for job_id = 1:n_jobs
              % Note x[j], y[j] and c[j] are column vectors. The returned f is also a column vector.
             Ahr = finufft2d3(single(fy(:)), single(fz(:)), single(R(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
         else
-            Ahr = nufftn(single(R), [-single(fy(:)/(2*pi)), -single(fz(:)/(2*pi))], {single(y_image), single(z_image)});
+            Ahr = nufftn(single(R), [-single(fy(:)/(2*pi)), -single(fz(:)/(2*pi))], {single(y_image), single(z_image_recon)});
         end
 
         % Reshape the column vector to the 2D image
         Ahr = reshape(Ahr, ny, nz);
+
+        if ~correct_for_index_mismatch
+            channels_eff = mesti_build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_eff);
+            kz_eff_norm = channels_eff.kxdx_prop(round(end/2))/dx;
+            kz_in_norm = kz_in(round(end/2));
+            time_gating_factor = exp(-2i*(kz_eff_norm*z_image-kz_in_norm*z_image_recon));
+            Ahr = Ahr.*time_gating_factor;
+        end
+
         psi = psi + Ahr;
     end
 end
@@ -122,5 +146,11 @@ recon_img_dir = fullfile(data_dir, 'reconstructed_images');
 if ~exist(recon_img_dir, 'dir')
     mkdir(recon_img_dir);
 end
-save(fullfile(recon_img_dir, 'smt.mat'), 'y_image', 'z_image', 'I', 'phase_profile');
+
+if correct_for_index_mismatch
+    save(fullfile(recon_img_dir, 'smt.mat'), 'y_image', 'z_image', 'I', 'phase_profile');
+else
+    save(fullfile(recon_img_dir, 'smt_no_correction.mat'), 'y_image', 'z_image', 'I', 'phase_profile');
+end
+
 end
