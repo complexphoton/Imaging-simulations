@@ -30,34 +30,40 @@ load(syst_data_path, 'z_f_air', 'depth_scaling', 'W_image', 'L_image', ...
 %% Specify the reconstruction grid
 y_image = (dy_image/2:dy_image:W_image) - W_image/2;
 z_image = (dz_image_rcm/2:dz_image_rcm:L_image);
-% The image needs to be scaled along the z-axis due to index mismatch
+
+% A beam focused in air at z will focus at z*depth_scaling in the
+% medium due to the refraction at the air-medium interface. 
+% Without the index-mismatch correction, the synthesized beams focus in
+% air. To reconstruct the image at depth z_image, the beam should focus
+% at z_image/depth_scaling.
 z_image_recon = z_image/depth_scaling;
 ny = length(y_image); nz = length(z_image);
+[Z, Y] = meshgrid(z_image_recon, y_image);
 
-%% Check if Flatiron nufft exists
-use_finufft = exist('finufft2d3', 'file');
+%% Determine which NUFFT function to use.
+use_finufft = exist('finufft2d3', 'file'); % check if Flatiron NUFFT exists.
 if use_finufft
-    [Z, Y] = meshgrid(z_image_recon, y_image);
     fprintf('reconstructing the RCM image with Flatiron nufft...\n');
 else
     fprintf('reconstructing the RCM image with MATLAB nufft...\n');
 end
 
-%% Reconstruct the image
-% Load the R from the center frequency
+%% Reconstruct the RCM image.
+% Load the R from the center frequency.
 job_id = round(n_jobs/2);
 load(fullfile(data_dir, 'hyperspectral_reflection_matrices', 'angular_R', [num2str(job_id), '.mat']), ...
     'hyperspectral_R_angular', 'ky_list', 'kz_list');
 ky = ky_list{1}; kz = kz_list{1};
 R = hyperspectral_R_angular{1};
 
-% Add a complex Gaussian noise to R
+% Add a complex Gaussian noise to R.
 R = R + noise_amp*sqrt(mean(abs(R).^2, 'all'))*randn(size(R), 'like', 1j);
 
-% Shift the reference plane of R from z = z_f_air in air to z = 0
+% Shift the reference plane of R from z = z_f_air in air to z = 0.
 R = reshape(exp(1i*kz*z_f_air), [], 1).*R.*reshape(exp(1i*kz*z_f_air), 1, []);
 
-% Compute \psi(\omega_c) = sum_{ba} R_{ba}(\omega_c) exp(i((ky_b-ky_a)y+(kz_b - kz_a)z)) by nufft
+% Compute \psi(\omega_c) = sum_{ba} R_{ba}(\omega_c)
+% exp(i((ky_b-ky_a)y+(kz_b - kz_a)z)) by NUFFT.
 % RCM = |\psi(\omega_c)|^2;
 
 % fy_{ba} = ky(b) - ky(a); fz_{ba} = -kz(b) - kz(a).
@@ -70,21 +76,32 @@ fy = ky.' - ky;
 fz = -kz.' - kz;
 
 if use_finufft
-    % f = finufft2d3(x,y,c,isign,eps,s,t) computes
-    % f[k] = sum_j c[j] exp(+-i (s[k] x[j] + t[k] y[j])), for k = 1, ..., nk.
-    % Note x[j], y[j] and c[j] are column vectors. The returned f is also a column vector.
-    Ahr = finufft2d3(single(fy(:)), single(fz(:)), single(R(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
+    % psi = finufft2d3(fy, fz, R, isign, eps, y, z) computes
+    % psi(k) = sum_j R(j) exp(isign*i (y(k) fy(j) + z(k) fz(j))), for k = 1, ..., length(fy).
+    % fy, fz, R, y, z and psi are column vectors.
+    % isign = +1 or -1 and eps is the tolerance.
+    psi = finufft2d3(single(fy(:)), single(fz(:)), single(R(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
 else
-    Ahr = nufftn(single(R), [-single(fy(:)/(2*pi)), -single(fz(:)/(2*pi))], {single(y_image), single(z_image_recon)});
+    % psi = nufftn(R, -[fy/(2pi), fz/(2pi)], {y, z}) computes
+    % psi(m, n) = sum_j R(j) exp(i (y(m) fy(j) + z(n)
+    % fz(j))), for m = 1, ..., ny and n = 1, ..., nz.
+    % R, fy and fz are column vectors with the same length.
+    % {y, z} is a cell array.
+
+    % Two caveats:
+    % 1. The query points {y, z} can be a matrix, where each column corresponds to Y(:) or Z(:),
+    % but the speed will be much slower as of R2023b.
+    % 2. The psi that nufftn() returns is a column vector.
+    psi = nufftn(single(R), -single([fy(:)/(2*pi), fz(:)/(2*pi)]), {single(y_image), single(z_image_recon)});
 end
 
-% Reshape the column vector to the 2D image
-I = abs(reshape(Ahr, ny, nz)).^2;
+% Reshape the column vector to the 2D image.
+I = abs(reshape(psi, ny, nz)).^2;
 
-% Normalize the image such that the averaged intensity is 1
+% Normalize the image such that the averaged intensity is 1.
 I = I/mean(I, 'all');
 
-%% Save the image data
+%% Save the image data.
 recon_img_dir = fullfile(data_dir, 'reconstructed_images');
 if ~exist(recon_img_dir, 'dir')
     mkdir(recon_img_dir);
