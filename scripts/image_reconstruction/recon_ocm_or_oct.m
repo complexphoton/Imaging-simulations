@@ -45,10 +45,10 @@ z_image = dz_image/2:dz_image:L_image;
 fprintf(['reconstructing the ', upper(recon_method),' image: ']);
 psi = 0; % complex OCM/OCT image amplitude
 for job_id = 1:n_jobs
-    % Display a text progress bar
+    % Display a text progress bar.
     textprogressbar(job_id, job_id/n_jobs*100);
 
-    % Load the hyperspectral spatial R for one job
+    % Load the hyperspectral spatial R for one job.
     if strcmpi(recon_method, 'ocm')
         R_dir = fullfile(data_dir, 'hyperspectral_reflection_matrices', 'spatial_R', 'high_NA');
     else
@@ -58,13 +58,14 @@ for job_id = 1:n_jobs
         'wavelength_list', 'y_image');
 
     for i = 1:n_wavelengths_per_job
-        R_diag = hyperspectral_R_spatial_diag{i};
+        % Load the hyperspectral confocal reflection coefficients.
+        Rc_omega = hyperspectral_R_spatial_diag{i};
 
-        % Add a complex Gaussian noise to R
-        R_diag = R_diag + noise_amp*sqrt(mean(abs(R_diag).^2, 'all'))*randn(size(R_diag), 'like', 1j);
+        % Add a complex Gaussian noise to R.
+        Rc_omega = Rc_omega + noise_amp*sqrt(mean(abs(Rc_omega).^2, 'all'))*randn(size(Rc_omega), 'like', 1j);
 
         % Obtain wavevectors at normal incidence in the air and effective 
-        % index for computing the time gating factor
+        % index for computing the time gating factor.
         % It is important to use epsilon_eff, rather than epsilon_medium,
         % to obtain kz_bg. Otherwise, the target locations along z will be inaccurate/shifted.
         k0dx = 2*pi/wavelength_list(i)*dx;
@@ -72,20 +73,24 @@ for job_id = 1:n_jobs
         kz_in = channels.L.kxdx_prop(round(end/2))/dx;
         kz_bg = channels.R.kxdx_prop(round(end/2))/dx;
 
-        % The time-gating factor = exp(-i*omega*t_gated), where t_gated = 2(z-z_f_bg)/v_g_mid
-        % and v_g_mid is the group velocity at the center frequency in epsilon_medium.
-        % In this expression, z-z_f_bg is the distance between the imaging
-        % plane at depth z and the reference plane at depth z_f_bg. Light
-        % travels a round trip (=2(z-z_f_bg)) before it is captured thus
-        % the time-gated reflection light from depth z should be sampled at t =
-        % 2(z-z_f_bg)/v_g_mid.
-        % However, the expression above does not account for the numerical dispersion in v_g. 
-        % Thus, we replace omega/v_g_mid with kz at the normal incident, which is calculated
-        % at the corresponding frequency.
+        % Compute the time-gating factor.
+
+        % The incident pulse is at the air-medium interface z = 0 at time t = -z^{air}_f/v^{air}_g,
+        % where v^{air}_g is the group velocity in air, and it would focus in the absence of the medium to
+        % a depth z^{air}_f at time t = 0. It takes time z_image/v_g for
+        % the pulse to travel from z = 0 to z = z_image in the medium,
+        % where v_g is the group velocity in the medium and z_image is the
+        % imaging depth, thus the pulse arrives at z = z_image at 
+        % t = t_f = z_image/v_g - z^{air}_f/v^{air}_g.
+
+        % To account for the numerical dispersion of the group
+        % velocity, we set the time-gating factor exp(-2i*omega*t_f)
+        % to exp(-2i(k^{eff}_z*z_image - k^{air}_z*z^{air}_f)),
+        % where k^{eff}_z and k^{air}_z are the longitudinal components of
+        % the wave vectors at normal incidence in the medium and in the air respectively.
         time_gating_factor = single(exp(-2i*(kz_bg*z_image-kz_in*z_f_air)));
 
-        % Compute time-gated reflection field
-        psi = psi + time_gating_factor.*R_diag;
+        psi = psi + time_gating_factor.*Rc_omega;
     end
 end
 fprintf('done\n');
@@ -102,6 +107,6 @@ recon_img_dir = fullfile(data_dir, 'reconstructed_images');
 if ~exist(recon_img_dir, 'dir')
     mkdir(recon_img_dir);
 end
-save(fullfile(recon_img_dir, [recon_method, '.mat']), 'y_image', 'z_image', 'I', 'phase_profile');
+save(fullfile(recon_img_dir, [lower(recon_method), '.mat']), 'y_image', 'z_image', 'I', 'phase_profile');
 end
 

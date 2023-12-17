@@ -113,8 +113,8 @@ for job_id = 1:n_jobs
         ky_recon = ky_air; 
         kz_recon = channels.kxdx_prop(idx)/dx;
 
-        % Compute \psi(\omega) = sum_{ba} (R_{ba}(\omega) exp(i((ky_b-ky_a)y+(kz_b - kz_a)z))) by NUFFT.
-        % SMT = |sum_{\omega} \psi(\omega)|^2
+        % Compute psi(y, z, omega) = sum_{ba} (R_{ba}(omega) exp(i((ky_b-ky_a)y+(kz_b-kz_a)z))) by NUFFT.
+        % I_{SMT}(y, z) = |sum_{omega} psi(y, z, omega)|^2
 
         % fy_{ba} = ky_recon(b) - ky_recon(a); fz_{ba} = -kz_recon(b) - kz_recon(a).
         % Here, ky_recon and kz_recon are row vectors with length n_prop so
@@ -124,17 +124,16 @@ for job_id = 1:n_jobs
         fz = -kz_recon.' - kz_recon;
 
         if use_finufft
-            % psi_omega = finufft2d3(fy, fz, R, isign, eps, y, z) computes
-            % psi_omega(k) = sum_j R(j) exp(isign*i (y(k) fy(j) + z(k) fz(j))), for k = 1, ..., length(fy).
-            % fy, fz, R, y, z and psi_omega are column vectors.
+            % psi_omega = finufft2d3(fy, fz, R, isign, eps, Y, Z) computes
+            % psi_omega(k) = sum_j R(j)*exp(isign*i(fy(j)*Y(k) + fz(j)*Z(k))), for k = 1, ..., ny*nz.
+            % fy, fz, R, Y, Z, and psi_omega are column vectors.
             % isign = +1 or -1 and eps is the tolerance.
             psi_omega = finufft2d3(single(fy(:)), single(fz(:)), single(R(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
         else
             % psi_omega = nufftn(R, -[fy/(2pi), fz/(2pi)], {y, z}) computes
-            % psi_omega(m, n) = sum_j R(j) exp(i (y(m) fy(j) + z(n)
-            % fz(j))), for m = 1, ..., ny and n = 1, ..., nz.
-            % R, fy and fz are column vectors with the same length.
-            % {y, z} is a cell array.
+            % psi_omega(m, n) = sum_j R(j)*exp(i(fy(j)*y(m) + fz(j)*z(n))), for m = 1, ..., ny and n = 1, ..., nz.
+            % R, fy, and fz are column vectors with the same length.
+            % {y, z} is a cell array, where y and z are row vectors.
 
             % Two caveats: 
             % 1. The query points {y, z} can be a matrix, where each column corresponds to Y(:) or Z(:),  
@@ -146,16 +145,20 @@ for job_id = 1:n_jobs
             psi_omega = reshape(psi_omega, ny, nz);
 
         if ~correct_for_index_mismatch
-            % We need an additional time-gating factor for SMT without index-mismatch correction.
-            % The synthesized input beam focuses at z_image_recon in air at
-            % t = 0. Due to the refraction at the air-medium interface,
-            % the beam focuses at z_image in medium at t =
-            % (z_image-z_image_recon)/v_g, where v_g is the group velocity.
-            % Thus, one needs a time-gating factor exp(-2i*\omega*t) to
-            % reconstruct the image at z_image.
-            % To account for the numerical dispersion, we should replace
-            % \omega/v_g with kz, where kz is calculated from the
-            % finite-difference dispersion relation.
+            % We need an additional time-gating factor for reconstructing SMT
+            % without index-mismatch correction. Without the correction, 
+            % the incident pulse would focus in the absence of the medium to 
+            % a depth z_image_recon at time t = 0. Due to the refraction at the air-medium interface,
+            % the pulse focuses to a deeper depth z_image at time t = t_f = z_image/v_g-z_image_recon/v^{air}_g, 
+            % where v_g is the group velocity in the medium and v^{air}_g is the group velocity in air.
+            % To align the temporal gate with the spatial gate, we include an additional time-gating factor 
+            % exp(-2i*omega*t_f).
+
+            % To account for the numerical dispersion of the group
+            % velocity, we set the time-gating factor exp(-2i*omega*t_f)
+            % to exp(-2i(k^{eff}_z*z_image - k^{air}_z*z_image_recon)),
+            % where k^{eff}_z and k^{air}_z are are the longitudinal components of 
+            % the wave vectors at normal incidence in the medium and in the air respectively. 
             channels_eff = mesti_build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_eff);
             kz_eff_norm = channels_eff.kxdx_prop(round(end/2))/dx;
             kz_air_norm = kz_air(round(end/2));

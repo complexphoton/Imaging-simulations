@@ -3,7 +3,7 @@ function recon_rcm(data_dir)
 %    recon_rcm(data_dir)
 %
 %  === Input Arguments ===
-%  data_dir (character array; required): 
+%  data_dir (character array; required):
 %    The data directory where data_dir/system_data.mat stores
 %    system data and data_dir/hyperspectral_reflection_matrices/angular_R stores the
 %    angular reflection matrices.
@@ -22,12 +22,12 @@ function recon_rcm(data_dir)
 % z = [0, L_image], where W_image and L_image is defined during the system
 % setup.
 
-%% Load the system data
+%% Load the system data.
 syst_data_path = fullfile(data_dir, 'system_data.mat');
 load(syst_data_path, 'z_f_air', 'depth_scaling', 'W_image', 'L_image', ...
     'dy_image', 'dz_image_rcm', 'noise_amp', 'n_jobs');
 
-%% Specify the reconstruction grid
+%% Specify the reconstruction grid.
 y_image = (dy_image/2:dy_image:W_image) - W_image/2;
 z_image = (dz_image_rcm/2:dz_image_rcm:L_image);
 
@@ -62,9 +62,8 @@ R = R + noise_amp*sqrt(mean(abs(R).^2, 'all'))*randn(size(R), 'like', 1j);
 % Shift the reference plane of R from z = z_f_air in air to z = 0.
 R = reshape(exp(1i*kz*z_f_air), [], 1).*R.*reshape(exp(1i*kz*z_f_air), 1, []);
 
-% Compute \psi(\omega_c) = sum_{ba} R_{ba}(\omega_c)
-% exp(i((ky_b-ky_a)y+(kz_b - kz_a)z)) by NUFFT.
-% RCM = |\psi(\omega_c)|^2;
+% Compute psi(y, z, omega_c) = sum_{ba} R_{ba}(omega_c) exp(i((ky_b-ky_a)y+(kz_b - kz_a)z)) by NUFFT.
+% I_{RCM}(y, z) = |psi(y, z, omega_c)|^2;
 
 % fy_{ba} = ky(b) - ky(a); fz_{ba} = -kz(b) - kz(a).
 % Here, ky and kz is a row vector with length n_prop so
@@ -76,17 +75,16 @@ fy = ky.' - ky;
 fz = -kz.' - kz;
 
 if use_finufft
-    % psi = finufft2d3(fy, fz, R, isign, eps, y, z) computes
-    % psi(k) = sum_j R(j) exp(isign*i (y(k) fy(j) + z(k) fz(j))), for k = 1, ..., length(fy).
-    % fy, fz, R, y, z and psi are column vectors.
+    % psi = finufft2d3(fy, fz, R, isign, eps, Y, Z) computes
+    % psi(k) = sum_j R(j)*exp(isign*i(Y(k)*fy(j) + Z(k)*fz(j))), for k = 1, ..., length(fy).
+    % fy, fz, R, Y, Z, and psi are column vectors.
     % isign = +1 or -1 and eps is the tolerance.
     psi = finufft2d3(single(fy(:)), single(fz(:)), single(R(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
 else
     % psi = nufftn(R, -[fy/(2pi), fz/(2pi)], {y, z}) computes
-    % psi(m, n) = sum_j R(j) exp(i (y(m) fy(j) + z(n)
-    % fz(j))), for m = 1, ..., ny and n = 1, ..., nz.
-    % R, fy and fz are column vectors with the same length.
-    % {y, z} is a cell array.
+    % psi(m, n) = sum_j R(j)*exp(i(y(m)*fy(j) + z(n)*fz(j))), for m = 1, ..., ny and n = 1, ..., nz.
+    % R, fy, and fz are column vectors with the same length.
+    % {y, z} is a cell array, where y and z are row vectors.
 
     % Two caveats:
     % 1. The query points {y, z} can be a matrix, where each column corresponds to Y(:) or Z(:),
