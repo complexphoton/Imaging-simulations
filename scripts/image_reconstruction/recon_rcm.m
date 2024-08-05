@@ -57,7 +57,8 @@ ky = ky_list{1}; kz = kz_list{1};
 R = hyperspectral_R_angular{1};
 
 % Add a complex Gaussian noise to R.
-R = R + noise_amp*sqrt(mean(abs(R).^2, 'all'))*randn(size(R), 'like', 1j);
+rng(0)% fix the random seed for the Gaussian noise
+R = R + noise_amp*sqrt(mean(abs(R).^2, 'all'))*(randn(size(R))+1j*randn(size(R)));
 
 % Shift the reference plane of R from z = z_f_air in air to z = 0.
 R = reshape(exp(1i*kz*z_f_air), [], 1).*R.*reshape(exp(1i*kz*z_f_air), 1, []);

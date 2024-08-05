@@ -71,6 +71,7 @@ else
 end
 
 %% Reconstruct the SMT image.
+rng(0) % fix the random seed for the Gaussian noise
 psi = 0; % complex SMT image amplitude
 for job_id = 1:n_jobs
     % Display a text progress bar.
@@ -89,7 +90,7 @@ for job_id = 1:n_jobs
         kz_air = kz_list{i};
 
         % Add a complex Gaussian noise to R.
-        R = R + noise_amp*sqrt(mean(abs(R).^2, 'all'))*randn(size(R), 'like', 1j);
+        R = R + noise_amp*sqrt(mean(abs(R).^2, 'all'))*(randn(size(R))+1j*randn(size(R)));
 
         % Shift the reference plane of R from z = z_f_air in air to z = 0.
         % In principle, we should add the transmission matrix (T) of the sample 

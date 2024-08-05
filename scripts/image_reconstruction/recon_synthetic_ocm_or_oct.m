@@ -59,6 +59,7 @@ else
 end
 
 %% Reconstruct the image
+rng(0) % fix the random seed for the Gaussian noise
 psi = 0; % complex synthetic OCM/OCT image amplitude
 for job_id = 1:n_jobs
     % Display a text progress bar.

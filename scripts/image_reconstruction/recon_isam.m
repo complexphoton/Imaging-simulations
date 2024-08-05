@@ -45,6 +45,7 @@ else
     fprintf('reconstructing the ISAM image with MATLAB nufft: ');
 end
 
+rng(0) % fix the random seed for the Gaussian noise
 psi = 0; % complex ISAM image amplitude
 for job_id = 1:n_jobs
     % Display a text progress bar
@@ -58,7 +59,7 @@ for job_id = 1:n_jobs
         R_diag = hyperspectral_R_spatial_diag{wavelength_idx};
 
         % Add a complex Gaussian noise to R
-        R_diag = R_diag + noise_amp*sqrt(mean(abs(R_diag).^2, 'all'))*randn(size(R_diag), 'like', 1j);
+        R_diag = R_diag + noise_amp*sqrt(mean(abs(R_diag).^2, 'all'))*(randn(size(R_diag))+1j*randn(size(R_diag)));
         
         % Transform R from the spatial domain to the angular domain by FFT
         N = 2^(nextpow2(length(R_diag)));
@@ -98,14 +99,14 @@ for job_id = 1:n_jobs
              % f = finufft2d3(x,y,c,isign,eps,s,t) computes
              % f[k] = sum_j c[j] exp(+-i (s[k] x[j] + t[k] y[j])), for k = 1, ..., nk.
              % Note x[j], y[j] and c[j] are column vectors. The returned f is also a column vector.
-            Ahr = finufft2d3(single(Qy_eff(:)), single(Qz_eff(:)), single(R_angular(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
+            psi_omega = finufft2d3(single(Qy_eff(:)), single(Qz_eff(:)), single(R_angular(:)), 1, 1e-2, single(Y(:)), single(Z(:)));
         else
-            Ahr = nufftn(single(R_angular), [-single(Qy_eff(:)/(2*pi)), -single(Qz_eff(:)/(2*pi))], {single(y_image), single(z_image)});
+            psi_omega = nufftn(single(R_angular), [-single(Qy_eff(:)/(2*pi)), -single(Qz_eff(:)/(2*pi))], {single(y_image), single(z_image)});
         end
 
         % Reshape the column vector to the 2D image
-        Ahr = reshape(Ahr, ny, nz);
-        psi = psi + Ahr;
+        psi_omega = reshape(psi_omega, ny, nz);
+        psi = psi + psi_omega;
     end
 end
 fprintf('done\n');

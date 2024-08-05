@@ -43,6 +43,7 @@ z_image = dz_image/2:dz_image:L_image;
 
 %% Reconstruct the image
 fprintf(['reconstructing the ', upper(recon_method),' image: ']);
+rng(0) % fix the random seed for the Gaussian noise
 psi = 0; % complex OCM/OCT image amplitude
 for job_id = 1:n_jobs
     % Display a text progress bar.
@@ -62,7 +63,7 @@ for job_id = 1:n_jobs
         Rc_omega = hyperspectral_R_spatial_diag{i};
 
         % Add a complex Gaussian noise to R.
-        Rc_omega = Rc_omega + noise_amp*sqrt(mean(abs(Rc_omega).^2, 'all'))*randn(size(Rc_omega), 'like', 1j);
+        Rc_omega = Rc_omega + noise_amp*sqrt(mean(abs(Rc_omega).^2, 'all'))*(randn(size(Rc_omega))+1j*randn(size(Rc_omega)));
 
         % Obtain wavevectors at normal incidence in the air and effective 
         % index for computing the time gating factor.
