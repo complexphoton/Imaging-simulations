@@ -6,7 +6,8 @@
 
 clear
 % It is recommended to run this simulation on a cluster.
-data_dir = fullfile('.', 'data', 'small_system');
+%data_dir = fullfile('.', 'data', 'small_system');
+%data_dir = fullfile('.', 'data', 'small_system_no_weak');
 data_dir = fullfile('.', 'data', 'large_system');
 %data_dir = fullfile('.', 'data', 'large_system_no_weak');
 
@@ -66,7 +67,7 @@ epsilon_eff = mean(epsilon, 'all');
 % Supplementary Sec. II.
 wavelength = 2/(1/wavelength_list(1)+1/wavelength_list(end));
 k0dx = 2*pi/wavelength*dx;
-channels = mesti_build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_in, epsilon_eff);
+channels = build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_in, epsilon_eff);
 
 % Select channels within NA.
 idx_NA = abs(channels.L.kydx_prop/(k0dx*sqrt(epsilon_in))) <= NA;

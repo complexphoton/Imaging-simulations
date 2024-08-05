@@ -72,7 +72,7 @@ for job_id = 1:n_jobs
     for wavelength_idx = 1:n_wavelengths_per_job
         k0dx = 2*pi/wavelength_list(wavelength_idx)*dx;
 
-        channels = mesti_build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_in, epsilon_eff);
+        channels = build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_in, epsilon_eff);
 
         % Select wavevectors within NA.
         idx_NA = abs(channels.L.kydx_prop/(k0dx*sqrt(epsilon_in))) <= NA;

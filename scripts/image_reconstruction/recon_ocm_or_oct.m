@@ -70,7 +70,7 @@ for job_id = 1:n_jobs
         % It is important to use epsilon_eff, rather than epsilon_medium,
         % to obtain kz_bg. Otherwise, the target locations along z will be inaccurate/shifted.
         k0dx = 2*pi/wavelength_list(i)*dx;
-        channels = mesti_build_channels(1, 'TM', 'periodic', k0dx, epsilon_in, epsilon_eff);
+        channels = build_channels(1, 'TM', 'periodic', k0dx, epsilon_in, epsilon_eff);
         kz_in = channels.L.kxdx_prop(round(end/2))/dx;
         kz_bg = channels.R.kxdx_prop(round(end/2))/dx;
 

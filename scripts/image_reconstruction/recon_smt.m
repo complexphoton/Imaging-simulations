@@ -108,7 +108,7 @@ for job_id = 1:n_jobs
         % calculated from the finite-difference dispersion relation.
         % When epsilon_recon = epsilon_in, kz_recon is simply kz_air.
         k0dx = 2*pi/wavelength_list(i)*dx;
-        channels = mesti_build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_recon);
+        channels = build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_recon);
         n_prop = length(kz_air);
         idx = (1:n_prop) + round((channels.N_prop-n_prop)/2);
         ky_recon = ky_air; 
@@ -160,7 +160,7 @@ for job_id = 1:n_jobs
             % to exp(-2i(k^{eff}_z*z_image - k^{air}_z*z_image_recon)),
             % where k^{eff}_z and k^{air}_z are are the longitudinal components of 
             % the wave vectors at normal incidence in the medium and in the air respectively. 
-            channels_eff = mesti_build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_eff);
+            channels_eff = build_channels(round(FOV_before_windowing/dx), 'TM', 'periodic', k0dx, epsilon_eff);
             kz_eff_norm = channels_eff.kxdx_prop(round(end/2))/dx;
             kz_air_norm = kz_air(round(end/2));
             time_gating_factor = exp(-2i*(kz_eff_norm*z_image-kz_air_norm*z_image_recon));
