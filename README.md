@@ -1,74 +1,28 @@
 # Imaging simulations
 
 ## Introduction
-This repository contains the code for performing large-scale full-wave simulations of several scattering-based imaging methods:
+This repository contains the code for [this paper](https://arxiv.org/abs/2308.07244) that performs large-scale full-wave simulations of scattering-based imaging methods:
 
-["Numerical experiments of tomographic optical imaging inside scattering media"](https://arxiv.org/abs/2308.07244)  
-- Scattering matrix tomography ([SMT](https://arxiv.org/abs/2306.08793)) in reflection mode
-- Reflectance confocal microscopy (RCM)
-- Optical coherence tomography (OCT)
-- Optical coherence microscopy (OCM)
-- Interferometric synthetic aperture microscopy (ISAM)
+- Scattering Matrix Tomography ([SMT](https://arxiv.org/abs/2306.08793))
+- Reflectance Confocal Microscopy (RCM)
+- Optical Coherence Tomography (OCT)
+- Optical Coherence Microscopy (OCM)
+- Interferometric Synthetic Aperture Microscopy (ISAM)
 
-["Deep imaging inside scattering media through virtual spatiotemporal wavefront shaping"](https://arxiv.org/abs/2306.08793)
-- Synthetic OCT
-- Synthetic OCM
-
-We use the scattering matrix to perform numerical modeling. The scattering matrix encapsulates the sample’s complete linear response. Given the scattering matrix of the sample, we can obtain the scattering field from arbitrary input and model any scattering-based imaging method. More importantly, the computation of scattering matrices is accelerated by several orders-of-magnitude thanks to the introduction of a new technique called [augmented partial factorizaion](https://www.nature.com/articles/s43588-022-00370-6), making it possible to perform the full-wave simulation on a large system. Such numerical modeling can be helpful for developing new imaging methods by providing the ground truth, the flexibility to tailor the system and the imaging scheme, and the ease of comparing different methods.
+We use the scattering matrix to perform numerical modeling. The scattering matrix encapsulates the sample’s complete linear response. Given the scattering matrix of the sample, we can obtain the scattering field from arbitrary input and model any scattering-based imaging method. The computation of scattering matrices is accelerated by several orders-of-magnitude thanks to the introduction of a new technique called [augmented partial factorizaion](https://www.nature.com/articles/s43588-022-00370-6), making it possible to perform the full-wave simulation on a large system. Such numerical modeling can be helpful for developing new imaging methods by providing the ground truth, the flexibility to tailor the system and the imaging scheme, and the ease of comparing different methods.
 
 ## Installation
 
-### Prerequisites
-The code is written in MATLAB so no compilation is required. But you need the following dependencies to run different components of the code:
+The code is written in MATLAB so no compilation is required. Simply download the source code and add all the folders to the MATLAB search path. Make sure that the working directory is ```/path/to/Imaging-simulations``` when you run the code.
 
-- System setup: [MESTI](https://github.com/complexphoton/MESTI.m), [METIS](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview) (optional)
-- Reflection matrix computation: [MESTI](https://github.com/complexphoton/MESTI.m), [MUMPS](https://mumps-solver.org/index.php) (optional but highly recommended)
-- Image reconstruction: [MESTI](https://github.com/complexphoton/MESTI.m), [FINUFFT](https://finufft.readthedocs.io/en/latest/) (optional)
-- Field profile computattion: [MESTI](https://github.com/complexphoton/MESTI.m), [MUMPS](https://mumps-solver.org/index.php)
+The following package or software is required for running some components of the code:
+- MATLAB (R2023b or later is preferred)
+- [MESTI](https://github.com/complexphoton/MESTI.m): required for the reflection matrix computation using APF. No need for the image reconstruction or other components.
 
-Note that if you plan to use one component of the code, there is no need to install dependencies of other components.
+The following packages are optional. They can accelerate the scattering matrix computation or image reconstruction.
 
-### Install Dependencies
-
-#### MESTI
-
-MESTI is required for all components of the code. The installation of MESTI is straightforward. Simply download the source code from [here](https://github.com/complexphoton/MESTI.m/tree/main/src) and add it to the MATLAB search path.
-
-#### METIS
-
-METIS produces high-quality orderings for matrix factorization, which accelerates the reflection matrix computation. In our large system, the computation time is shorten by about 20%.
-
-Download the source code from [here](http://glaros.dtc.umn.edu/gkhome/metis/metis/download). No need to use the OpenMP version. You can compile METIS using the default option:
-```
-$ make config
-$ make
-```
-265s
-Once the compilation is finished, you can find the METIS library under ```metis-x.x.x/build/*/libmetis```. The library path and header file path (```metis-x.x.x/include/```) will be used later for the compilation of MUMPS. There is no need to add METIS to the MATLAB search path. 
-
-#### MUMPS
-
-In the reflection matrix computation, we need MUMPS to perform the partial factorization in the APF method. It is possible to run the code without MUMPS but it will use another method and the computation time will be much longer. 
-
-The detailed instructions for compiling MUMPS can be found [here](https://github.com/complexphoton/MESTI.m/tree/main/mumps).
-
-#### FINUFFT
-
-Most of our image reconstruction code uses non-uniform fast Fourier transforms (NUFFTs). FINUFFT is a library to perform the NUFFTs efficiently. MATLAB also implements its own NUFFT function in R2020a and improve the performance in R2022a and R2023b. The code will use the MATLAB NUFFT if FINUFFT is not installed. We found that on R2023b the reconstruction time is comparable with FINUFFT or MATLAB NUFFT. Thus, you can simply use the MATLAB NUFFT if your MATLAB version is R2023b or later.
-
-To install FINUFFT, download the source code from [here](https://github.com/flatironinstitute/finufft/releases). There are two routes to compile: the new CMake-based route and the old GNU makefile-based route. Note that the CMake-based route is still [under development](https://github.com/flatironinstitute/finufft/pull/254), which does not support many building options. You can take the makefile-based route for now.
-
-There is a caveat in compiling the MATLAB interface on Mac. You may get a warning of ```license has not been accepted``` from Xcode and a following error of ```no supported compiler was found```. The same error can happen to the MATLAB interface of MUMPS. The simple [solution](https://finufft.readthedocs.io/en/latest/install.html#the-clang-route-default) is typing 
-
-```
-$ /usr/libexec/PlistBuddy -c 'Add :IDEXcodeVersionForAgreedToGMLicense string 10.0' ~/Library/Preferences/com.apple.dt.Xcode.plist
-```
-in the command line. 
-
-Remember to add ```finufft-x.x.x/matlab``` to the MATLAB search path after the compilation.
-
-
-After installing the required dependencies above, you can simply download the code and add all folders to the MATLAB search path. Make sure that the working directory is ```/path/to/Imaging-simulations``` when you run the code.
+- [METIS](http://glaros.dtc.umn.edu/gkhome/metis/metis/download): a package for producing high-quality orderings for matrix factorization, which accelerates the scattering matrix computation. For the systems considered in the paper, the computation time is shorten by about 20%.
+- [FINUFFT](https://github.com/flatironinstitute/finufft): a package that implementes non-uniform fast Fourier transforms (NUFFTs). We need NUFFTs for image reconstruction. MATLAB also implements its own NUFFT function in R2020a and improve the performance in R2022a and R2023b. The code will use MATLAB's nufftn() if FINUFFT is not installed. 
 
 ## Getting Started
 To get started, we suggest running the image reconstruction code for the system described in our paper. After downloading the precomputed reflection matrix, ```system_data.mat``` file and moving them to ```Image-simulations/data/large_system```, you can use  ```recon_all.m``` to reconstruct all images. Before running the script, make sure that the working directory is ```/path/to/Imaging-simulations``` and all scripts are in the MATLAB search path. It takes less than one minute to reconstruct each image on a MacBook Air with Apple M1 chip.  
